@@ -1,0 +1,5 @@
+{
+  "appHost": {
+    "path": "src/LicitaEdital.AspireHost/LicitaEdital.AspireHost.csproj"
+  }
+}

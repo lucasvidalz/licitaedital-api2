@@ -1,0 +1,125 @@
+﻿using LicitaEdital.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Testcontainers.MsSql;
+
+namespace LicitaEdital.FunctionalTests;
+
+public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProgram>, IAsyncLifetime where TProgram : class
+{
+  private MsSqlContainer? _dbContainer;
+
+  public async ValueTask InitializeAsync()
+  {
+    try
+    {
+      _dbContainer = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2025-latest")
+        .WithPassword("Your_password123!")
+        .Build();
+      await _dbContainer.StartAsync();
+    }
+    catch (ArgumentException)
+    {
+      // Docker is not available; fall back to SQLite (configured via appsettings.Testing.json)
+      _dbContainer = null;
+    }
+  }
+
+  public new async ValueTask DisposeAsync()
+  {
+    // Clean up environment variable
+    Environment.SetEnvironmentVariable("USE_SQL_SERVER", null);
+    if (_dbContainer != null)
+    {
+      await _dbContainer.DisposeAsync();
+    }
+  }
+
+  /// <summary>
+  /// Overriding CreateHost to avoid creating a separate ServiceProvider per this thread:
+  /// https://github.com/dotnet-architecture/eShopOnWeb/issues/465
+  /// </summary>
+  /// <param name="builder"></param>
+  /// <returns></returns>
+  protected override IHost CreateHost(IHostBuilder builder)
+  {
+    builder.UseEnvironment("Testing"); // will not send real emails
+    var host = builder.Build();
+    host.Start();
+
+    // Get service provider.
+    var serviceProvider = host.Services;
+
+    // Create a scope to obtain a reference to the database
+    // context (AppDbContext).
+    using (var scope = serviceProvider.CreateScope())
+    {
+      var scopedServices = scope.ServiceProvider;
+      var db = scopedServices.GetRequiredService<AppDbContext>();
+
+      var logger = scopedServices
+          .GetRequiredService<ILogger<CustomWebApplicationFactory<TProgram>>>();
+
+      try
+      {
+        // Testes funcionais usam EnsureCreated para nao acoplar ao script de migracao.
+        db.Database.EnsureCreated();
+
+        // Semente de teste especifica da feature entra aqui, no proprio teste ou numa fixture.
+      }
+      catch (Exception ex)
+      {
+        logger.LogError(ex, "An error occurred preparing the test database. Error: {exceptionMessage}", ex.Message);
+        throw;
+      }
+    }
+
+    return host;
+  }
+
+  protected override void ConfigureWebHost(IWebHostBuilder builder)
+  {
+    if (_dbContainer != null)
+    {
+      // Force SQL Server mode even on non-Windows platforms for functional tests
+      Environment.SetEnvironmentVariable("USE_SQL_SERVER", "true");
+    }
+
+    builder
+        .ConfigureAppConfiguration((context, config) =>
+        {
+          if (_dbContainer != null)
+          {
+            // Set the connection string to use the Testcontainer
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+              ["ConnectionStrings:DefaultConnection"] = _dbContainer.GetConnectionString()
+            });
+          }
+        })
+        .ConfigureServices(services =>
+        {
+          if (_dbContainer != null)
+          {
+            // Remove the app's ApplicationDbContext registration
+            var descriptors = services.Where(
+              d => d.ServiceType == typeof(AppDbContext) ||
+                   d.ServiceType == typeof(DbContextOptions<AppDbContext>))
+                  .ToList();
+
+            foreach (var descriptor in descriptors)
+            {
+              services.Remove(descriptor);
+            }
+
+            // Add ApplicationDbContext using the Testcontainers SQL Server instance
+            services.AddDbContext<AppDbContext>((provider, options) =>
+            {
+              options.UseSqlServer(_dbContainer.GetConnectionString());
+              var interceptor = provider.GetRequiredService<EventDispatchInterceptor>();
+              options.AddInterceptors(interceptor);
+            });
+          }
+        });
+  }
+}

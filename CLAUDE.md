@@ -1,0 +1,309 @@
+# LicitaEdital — API
+
+Backend do **licitaedital** (Radar Inteligente de Licitações). .NET 10, Clean Architecture sobre o
+template [ardalis/CleanArchitecture](https://github.com/ardalis/CleanArchitecture), com o código de
+exemplo do template já removido.
+
+Este arquivo é a instrução única para qualquer agente que trabalhe aqui. Regras invioláveis
+primeiro, padrão por camada depois.
+
+---
+
+## Regras invioláveis
+
+1. **A regra de dependência não se quebra.** `Core` não referencia ninguém. `UseCases` referencia
+   só `Core`. `Infrastructure` e `Web` referenciam para dentro, nunca o contrário. Se uma
+   implementação exige que `Core` conheça EF Core, HTTP, e-mail ou qualquer detalhe externo, a
+   resposta é **uma interface em `Core` implementada na camada de fora** — nunca uma referência nova
+   no `.csproj` do `Core`.
+2. **Warning é erro.** `TreatWarningsAsErrors` está ligado em `Directory.Build.props`. Não silencie
+   com `#pragma` nem com `NoWarn` novo: corrija. `Nullable` está habilitado — `!` só com motivo
+   escrito ao lado.
+3. **Versão de pacote não vai no `.csproj`.** Central Package Management está ligado: `<PackageReference
+   Include="X" />` sem `Version`, e a versão entra em `Directory.Packages.props`. Pacote novo é
+   decisão, não detalhe — justifique antes de adicionar.
+4. **Uma implementação, um lugar.** Antes de criar helper, extensão ou abstração, procure o que já
+   existe: `Web/Extensions/ResultExtensions.cs`, `UseCases/PagedResult.cs`, `UseCases/Constants.cs`,
+   `Infrastructure/Data/EfRepository.cs`, `Core/Interfaces/`.
+5. **Migração de banco é arquivo gerado, nunca escrito à mão.** Sempre via `dotnet ef migrations
+   add` (comando exato na seção *Comandos*), e sempre revisada antes de aceitar.
+6. **Não commitar.** Commit é papel do dev. Também não compile para validar — o dev faz isso.
+
+---
+
+## Estrutura
+
+```
+src/
+  LicitaEdital.Core/            domínio: entidades, agregados, value objects, eventos,
+                                specifications, interfaces. Zero dependência de framework.
+  LicitaEdital.UseCases/        CQRS: commands, queries, handlers, DTOs. Referencia só o Core.
+  LicitaEdital.Infrastructure/  EF Core, repositórios, query services, e-mail, serviços externos.
+  LicitaEdital.Web/             FastEndpoints (REPR), validação de request, composição de DI.
+  LicitaEdital.AspireHost/      orquestração local: SQL Server + Papercut (SMTP de teste).
+  LicitaEdital.ServiceDefaults/ OpenTelemetry, health checks, service discovery, resiliência.
+tests/
+  LicitaEdital.UnitTests/         domínio e handlers, sem I/O
+  LicitaEdital.IntegrationTests/  banco e componentes de Infrastructure
+  LicitaEdital.FunctionalTests/   endpoints HTTP ponta a ponta
+```
+
+Fluxo de uma requisição: `Endpoint (Web)` → `IMediator.Send(Command/Query)` → `Handler (UseCases)`
+→ `IRepository<T>` / `IXQueryService` → `Infrastructure` → banco.
+
+---
+
+## Convenções de C#
+
+Governadas por `.editorconfig` — ele é a fonte, o que segue é o resumo do que mais aparece:
+
+- **Indentação de 2 espaços**, arquivos `.cs` em **UTF-8 com BOM**, newline final.
+- **`namespace` file-scoped** (`namespace X;`), `using` **fora** do namespace, `System` primeiro.
+- `PascalCase` para tipos e membros, `camelCase` para parâmetros, `I` em interface, sufixo `Async`
+  em método assíncrono, `_` em campo privado.
+- **Primary constructors** para dependências. No template o parâmetro às vezes é atribuído a um
+  campo `private readonly` e às vezes é nomeado `_repository` direto no construtor — **padronize no
+  campo**: `public class Foo(IRepository<Bar> repository) { private readonly IRepository<Bar>
+  _repository = repository; }`. Nunca use o parâmetro do primary constructor diretamente no corpo.
+- Chaves sempre, **exceto** saída de uma linha: `if (x == null) return Result.NotFound();` fica numa
+  linha só.
+- `var` liberado; propriedade pode ser expression-bodied, método não.
+
+---
+
+## Padrão por camada
+
+### Core — domínio
+
+Um diretório por agregado: `src/LicitaEdital.Core/<Nome>Aggregate/`, com `Events/`, `Handlers/` e
+`Specifications/` dentro dele quando houver.
+
+**Entidade / raiz de agregado** — herda de `EntityBase<TEntity, TId>` do `Ardalis.SharedKernel` e
+marca a raiz com `IAggregateRoot`. Setter é privado; mudança de estado passa por método que carrega
+a intenção e registra o evento de domínio:
+
+```csharp
+public class Company(CompanyName name) : EntityBase<Company, CompanyId>, IAggregateRoot
+{
+  public CompanyName Name { get; private set; } = name;
+
+  public Company UpdateName(CompanyName newName)
+  {
+    if (Name == newName) return this;
+    Name = newName;
+    RegisterDomainEvent(new CompanyNameUpdatedEvent(this));
+    return this;
+  }
+}
+```
+
+**Value object e Id** — `Vogen`, com validação no próprio tipo. A configuração global do Vogen
+(`[assembly: VogenDefaults]`) mora em `Core/VogenConfiguration.cs`; não a duplique.
+
+```csharp
+[ValueObject<int>]
+public readonly partial struct CompanyId
+{
+  private static Validation Validate(int value)
+      => value > 0 ? Validation.Ok : Validation.Invalid("CompanyId must be positive.");
+}
+```
+
+**Enum de domínio** — `Ardalis.SmartEnum`, não `enum` nativo, quando o valor tem comportamento ou
+precisa persistir estável.
+
+**Evento de domínio** — `record` herdando `DomainEventBase`, disparado por `RegisterDomainEvent` na
+entidade (ou `IMediator.Publish` num serviço de domínio, quando não há entidade viva — caso de
+delete). O despacho acontece depois do `SaveChanges`, em
+`Infrastructure/Data/EventDispatcherInterceptor.cs`. **Handler de evento nunca recebe `DbContext`.**
+
+**Specification** — `Ardalis.Specification`, em `Specifications/`, uma classe por consulta do
+domínio. É o único jeito de filtrar por `IRepository<T>`.
+
+**Interface** — repositório e serviço externo declarados em `Core/Interfaces/`, implementados fora.
+`IEmailSender` é o exemplo vivo.
+
+### UseCases — aplicação
+
+Um diretório por agregado, um subdiretório por operação:
+`UseCases/<Agregado>/<Operacao>/` com o command/query e o handler.
+
+```csharp
+public record CreateCompanyCommand(CompanyName Name) : ICommand<Result<CompanyId>>;
+
+public class CreateCompanyHandler(IRepository<Company> repository)
+  : ICommandHandler<CreateCompanyCommand, Result<CompanyId>>
+{
+  private readonly IRepository<Company> _repository = repository;
+
+  public async ValueTask<Result<CompanyId>> Handle(CreateCompanyCommand command, CancellationToken ct)
+  {
+    var created = await _repository.AddAsync(new Company(command.Name), ct);
+    return created.Id;
+  }
+}
+```
+
+- **Command** para mutação, **Query** para leitura. Toda operação retorna `Result` / `Result<T>` do
+  `Ardalis.Result` — nunca exceção como fluxo de controle, nunca tipo do ASP.NET aqui.
+- **Mediator é o source generator** (pacote `Mediator`, de martinothamar), **não MediatR**: handler
+  devolve `ValueTask`, e o assembly precisa estar listado em `Web/Configurations/MediatorConfig.cs`.
+- **Query pode furar o repositório** por performance: declare a interface do query service aqui
+  (`IListCompaniesQueryService`), implemente em `Infrastructure/Data/Queries/`, e devolva DTO.
+- **DTO fica aqui**, não no `Core` nem no `Web`. Paginação usa `PagedResult<T>`; tamanho de página
+  vem de `Constants`.
+- Cross-cutting (log, validação, cache) entra como pipeline behavior em `MediatorConfig`, nunca
+  espalhado nos handlers.
+
+### Infrastructure — dados e integrações
+
+- `AppDbContext`: um `DbSet` por raiz de agregado, e nada mais. As configurações são descobertas por
+  `ApplyConfigurationsFromAssembly`.
+- Mapeamento em `Data/Config/<Entidade>Configuration.cs` (`IEntityTypeConfiguration<T>`) — **nunca**
+  por atributo na entidade, que sujaria o `Core`.
+- Todo value object mapeado precisa do conversor declarado em `Data/Config/VogenEfCoreConverters.cs`
+  (`[EfCoreConverter<T>]`) e de `.HasVogenConversion()` na propriedade.
+- Repositório genérico já existe (`EfRepository<T>`, sobre `Ardalis.Specification`). Repositório
+  específico só quando uma specification não resolve.
+- Registro de DI em `InfrastructureServiceExtensions.AddInfrastructureServices`. A ordem de
+  connection string é `licitaedital` (Aspire) → `DefaultConnection` (SQL Server) → `SqliteConnection`.
+- Nunca vaze tipo de EF Core (`DbContext`, `IQueryable` de entidade) para `UseCases` ou `Web`.
+
+### Web — API
+
+FastEndpoints no padrão **REPR** (Request-Endpoint-Response). Um diretório por recurso, **um arquivo
+por operação**: `Create.cs`, `GetById.cs`, `List.cs`, `Update.cs`, `Delete.cs`.
+
+```csharp
+public class Create(IMediator mediator)
+  : Endpoint<CreateCompanyRequest,
+             Results<Created<CreateCompanyResponse>, ValidationProblem, ProblemHttpResult>>
+{
+  private readonly IMediator _mediator = mediator;
+
+  public override void Configure()
+  {
+    Post(CreateCompanyRequest.Route);
+    Tags("Companies");
+    Summary(s => { s.Summary = "..."; s.Description = "..."; });
+  }
+
+  public override async Task<Results<Created<CreateCompanyResponse>, ValidationProblem, ProblemHttpResult>>
+    ExecuteAsync(CreateCompanyRequest request, CancellationToken ct)
+  {
+    var result = await _mediator.Send(new CreateCompanyCommand(CompanyName.From(request.Name!)), ct);
+    return result.ToCreatedResult(id => $"/Companies/{id}", id => new CreateCompanyResponse(id.Value, request.Name!));
+  }
+}
+```
+
+- Request declara sua rota em `public const string Route`, e o validador é um
+  `Validator<TRequest>` (FluentValidation) no mesmo arquivo do endpoint ou em
+  `<Operacao>.<Nome>Validator.cs` — o template usa os dois; **para recurso novo, um arquivo por
+  tipo** (`Create.cs`, `Create.CreateCompanyRequest.cs`, `Create.CreateCompanyValidator.cs`), que é
+  o que reduz conflito de merge.
+- **Não converta `Result` na mão.** Use `ResultExtensions`: `ToCreatedResult`, `ToGetByIdResult`,
+  `ToUpdateResult`, `ToDeleteResult`, `ToOkOnlyResult`. Faltou um caso? Adicione lá, não no endpoint.
+- **`AllowAnonymous()` é decisão de segurança explícita.** Endpoint novo nasce autenticado; abrir
+  exige motivo escrito no `Configure()`.
+- Registro de serviço vai em `Configurations/` (`ServiceConfigs`, `OptionConfigs`, `MediatorConfig`,
+  `MiddlewareConfig`, `LoggerConfigs`). **`Program.cs` só compõe** — não ganha `AddScoped`.
+- Endpoint **não fala com repositório nem com `DbContext`**: só com `IMediator`.
+
+---
+
+## Onde validar
+
+Três níveis, com responsabilidades distintas — não duplique, não pule:
+
+| Nível | Onde | O quê |
+| --- | --- | --- |
+| API | `Validator<TRequest>` (FluentValidation) | forma do input: obrigatório, tamanho, formato |
+| Use case | início do handler | pré-condições da operação, existência, autorização de dado |
+| Domínio | construtor / método da entidade, `Validate` do Vogen | invariante de negócio — lança exceção, assume input já validado |
+
+---
+
+## Testes
+
+| Projeto | Cobre | Regra |
+| --- | --- | --- |
+| `UnitTests` | entidade, value object, specification, handler | sem I/O, sem banco. Dublê com `NSubstitute`, `NoOpMediator` para `IMediator` |
+| `IntegrationTests` | `EfRepository`, mapeamento, interceptor | `BaseEfRepoTestFixture` dá `AppDbContext` InMemory pronto |
+| `FunctionalTests` | endpoint HTTP | `CustomWebApplicationFactory` (SQL Server via Testcontainers, com fallback SQLite sem Docker) |
+
+xUnit v3 + `Shouldly`. Nome do arquivo e da classe seguem `<Sujeito>_<Comportamento>` /
+`<Classe><Metodo>` — o que existe no repositório hoje é `DockerAvailabilityTests`; siga o mesmo
+tom descritivo.
+
+---
+
+## Comandos
+
+```bash
+# build e teste
+dotnet build LicitaEdital.slnx
+dotnet test  LicitaEdital.slnx --settings .runsettings
+
+# rodar só a API (SQLite local, sem Docker)
+dotnet run --project src/LicitaEdital.Web
+
+# rodar tudo com Aspire (SQL Server + Papercut em container)
+dotnet run --project src/LicitaEdital.AspireHost
+
+# migração — a partir de src/LicitaEdital.Web/
+dotnet ef migrations add <Nome> -c AppDbContext \
+  -p ../LicitaEdital.Infrastructure/LicitaEdital.Infrastructure.csproj \
+  -s LicitaEdital.Web.csproj -o Data/Migrations
+
+dotnet ef database update -c AppDbContext \
+  -p ../LicitaEdital.Infrastructure/LicitaEdital.Infrastructure.csproj \
+  -s LicitaEdital.Web.csproj
+```
+
+Em desenvolvimento a API sobe com Scalar em `/scalar` e Swagger em `/swagger`; a lista de serviços
+registrados fica em `/listservices`.
+
+---
+
+## O que não fazer
+
+- Referenciar `Infrastructure` a partir de `Core`, `UseCases` ou de um teste unitário.
+- Usar `MediatR` (o pacote é `Mediator`), `AutoMapper` (mapeie à mão no handler) ou Controllers
+  (`FastEndpoints` é o padrão).
+- Colocar regra de negócio em endpoint, em `Program.cs` ou em método de extensão de DI.
+- Criar entidade com setter público ou construtor sem invariante.
+- Escrever migração à mão, ou apagar/editar migração já aplicada.
+- Fazer seed de dado de runtime em git. Semente versionada só para conhecimento genérico de domínio.
+- Colocar segredo em `appsettings*.json`. Em desenvolvimento use *user secrets*; em produção, o
+  provedor de configuração do ambiente.
+
+---
+
+## Estado do repositório
+
+Este repositório nasceu do template `ardalis/CleanArchitecture`. Já foram removidos: o agregado de
+exemplo `Contributor` inteiro (Core, UseCases, Web, Infrastructure, migrações e testes), o `sample/`
+(`NimblePros.SampleToDo`), o `MinimalClean/`, o `.template.config/`, os `.nuspec`, o site de docs
+Hugo, os workflows e a documentação do projeto upstream, e o `AspireTests` (estava em `net9.0` e
+fora da solution). **Não há código de aplicação ainda** — a primeira feature começa do esqueleto.
+
+Os projetos foram renomeados de `Clean.Architecture.*` para `LicitaEdital.*`, e o banco do Aspire de
+`cleanarchitecture` para `licitaedital`.
+
+### Os outros repositórios do projeto
+
+| Repositório | Papel |
+| --- | --- |
+| `lucasvidalz/licitaedital-web` | frontend Angular |
+| `lucasvidalz/licitaledital-api` | backend anterior a este — **só documentação**, sem código: 21 regras de segurança em `docs/rules/seguranca-backend.md`, a fatia de auth em `docs/features/auth.md`, e a esteira SDD (`.specs/`) |
+| `Cez4rRxvxl/licitaedital-docs` | material cross-repo: produto, features com ID `FEAT-NN`, contratos de API |
+
+> ⚠️ O nome `licitaledital-api` tem um `l` a mais (`licita` + `l` + `edital`) e é o canônico.
+> `licitaedital-api`, sem o `l`, **resolve** — para o repositório do frontend, por um redirect de
+> rename. Nunca escreva essa URL por analogia.
+
+Este repositório foi iniciado como git **isolado**, sem remote, por decisão do dono em 14/09/2026.
+O contrato de API, os requisitos de produto e as regras de segurança que o backend precisa cumprir
+continuam vivos nos repositórios acima — consulte-os antes de especificar uma feature, e traga para
+cá o que for escopo de implementação.

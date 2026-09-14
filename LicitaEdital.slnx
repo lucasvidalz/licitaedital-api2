@@ -1,0 +1,32 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="CLAUDE.md" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/LicitaEdital.Core/LicitaEdital.Core.csproj" />
+    <Project Path="src/LicitaEdital.Infrastructure/LicitaEdital.Infrastructure.csproj" />
+    <Project Path="src/LicitaEdital.UseCases/LicitaEdital.UseCases.csproj" />
+    <Project Path="src/LicitaEdital.Web/LicitaEdital.Web.csproj" />
+  </Folder>
+  <Folder Name="/src/_aspire/">
+    <Project Path="src/LicitaEdital.AspireHost/LicitaEdital.AspireHost.csproj" />
+    <Project Path="src/LicitaEdital.ServiceDefaults/LicitaEdital.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LicitaEdital.FunctionalTests/LicitaEdital.FunctionalTests.csproj">
+      <BuildDependency Project="src/LicitaEdital.Web/LicitaEdital.Web.csproj" />
+    </Project>
+    <Project Path="tests/LicitaEdital.IntegrationTests/LicitaEdital.IntegrationTests.csproj">
+      <BuildDependency Project="src/LicitaEdital.Infrastructure/LicitaEdital.Infrastructure.csproj" />
+    </Project>
+    <Project Path="tests/LicitaEdital.UnitTests/LicitaEdital.UnitTests.csproj" />
+  </Folder>
+</Solution>
