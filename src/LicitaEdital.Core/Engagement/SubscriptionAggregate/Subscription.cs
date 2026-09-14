@@ -1,4 +1,5 @@
-﻿using LicitaEdital.Core.Shared;
+﻿using LicitaEdital.BuildingBlocks.Domain.Entities;
+using LicitaEdital.Core.Shared;
 
 namespace LicitaEdital.Core.Engagement.SubscriptionAggregate;
 
@@ -10,31 +11,36 @@ namespace LicitaEdital.Core.Engagement.SubscriptionAggregate;
 /// comercial (AD-039 do frontend). Por isso <see cref="ChangePlan"/> e' operacao interna, sem rota
 /// publica — expor um PUT aqui criaria fluxo que nao termina.
 /// </summary>
-public class Subscription : EntityBase<Subscription, SubscriptionId>, IAggregateRoot
+public class Subscription : AggregateRoot<SubscriptionId>, ITenantScoped
 {
-  private Subscription(OrganizationId organizationId, PlanId planId)
+  private Subscription(OrganizationId organizationId, PlanId planId, DateTimeOffset startedAt)
   {
     OrganizationId = organizationId;
     PlanId = planId;
+    StartedAt = startedAt;
   }
 
   public OrganizationId OrganizationId { get; private set; }
   public PlanId PlanId { get; private set; }
 
+  /// <summary>
+  /// Inicio da vigencia. Campo proprio, e nao <c>CreatedAt</c>: uma assinatura pode ser registrada
+  /// hoje com vigencia retroativa, e confundir as duas datas apagaria essa diferenca.
+  /// </summary>
   public DateTimeOffset StartedAt { get; private set; }
-  public DateTimeOffset UpdatedAt { get; private set; }
+
+  Guid ITenantScoped.TenantId => OrganizationId.Value;
 
   public static Subscription Start(OrganizationId organizationId, PlanId planId, TimeProvider clock)
-  {
-    var now = clock.GetUtcNow();
-    return new Subscription(organizationId, planId) { Id = SubscriptionId.New(), StartedAt = now, UpdatedAt = now };
-  }
+      => new(organizationId, planId, clock.GetUtcNow());
 
-  public Subscription ChangePlan(PlanId planId, TimeProvider clock)
+  public static Subscription StartAt(OrganizationId organizationId, PlanId planId,
+    DateTimeOffset startedAt)
+    => new(organizationId, planId, startedAt);
+
+  public Subscription ChangePlan(PlanId planId)
   {
-    if (PlanId == planId) return this;
     PlanId = planId;
-    UpdatedAt = clock.GetUtcNow();
     return this;
   }
 }

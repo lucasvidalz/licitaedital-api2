@@ -4,7 +4,7 @@
   <ItemGroup>
     <PackageReference Include="Ardalis.GuardClauses" />
     <PackageReference Include="Ardalis.Result" />
-    <PackageReference Include="Ardalis.SharedKernel" />
+    <PackageReference Include="LicitaEdital.BuildingBlocks.Domain" />
     <PackageReference Include="Ardalis.SmartEnum" />
     <PackageReference Include="Ardalis.Specification" />
     <PackageReference Include="Mediator.Abstractions" />

@@ -1,4 +1,5 @@
-﻿using Vogen;
+﻿using LicitaEdital.BuildingBlocks.Domain.Identifiers;
+using Vogen;
 
 namespace LicitaEdital.Core.Shared;
 
@@ -10,10 +11,8 @@ namespace LicitaEdital.Core.Shared;
 /// (spec §4). O tipo compartilhado da seguranca de compilacao; ele nao cria acoplamento de dados.
 /// </summary>
 [ValueObject<Guid>]
-public readonly partial struct OpportunityId
+public readonly partial struct OpportunityId : IGuidId<OpportunityId>
 {
-  public static OpportunityId New() => From(Guid.CreateVersion7());
-
   private static Validation Validate(Guid value)
       => value != Guid.Empty ? Validation.Ok : Validation.Invalid("OpportunityId nao pode ser vazio.");
 }

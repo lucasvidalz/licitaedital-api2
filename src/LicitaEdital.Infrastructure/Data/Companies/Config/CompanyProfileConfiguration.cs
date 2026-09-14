@@ -40,19 +40,18 @@ public class CompanyProfileConfiguration : IEntityTypeConfiguration<CompanyProfi
       .HasMaxLength(DataSchemaConstants.DefaultNameLength)
       .IsRequired();
 
-    builder.Property(profile => profile.CreatedAt).IsRequired();
-    builder.Property(profile => profile.UpdatedAt).IsRequired();
-
     // Um perfil por organizacao: `GET /company-profile` nao recebe id, entao duas linhas tornariam
     // a resposta arbitraria.
     builder.HasIndex(profile => profile.OrganizationId)
       .IsUnique()
-      .HasDatabaseName("ux_company_profiles_organization");
+      .HasDatabaseName("ux_company_profiles_organization")
+      .ActiveOnly();
 
     // CNPJ unico na plataforma inteira: a mesma empresa nao se cadastra em duas organizacoes.
     builder.HasIndex(profile => profile.Cnpj)
       .IsUnique()
-      .HasDatabaseName("ux_company_profiles_cnpj");
+      .HasDatabaseName("ux_company_profiles_cnpj")
+      .ActiveOnly();
 
     builder.UseXminAsConcurrencyToken();
   }

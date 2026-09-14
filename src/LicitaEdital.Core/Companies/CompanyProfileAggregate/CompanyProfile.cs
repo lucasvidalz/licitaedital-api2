@@ -1,4 +1,5 @@
-﻿using LicitaEdital.Core.Shared;
+﻿using LicitaEdital.BuildingBlocks.Domain.Entities;
+using LicitaEdital.Core.Shared;
 
 namespace LicitaEdital.Core.Companies.CompanyProfileAggregate;
 
@@ -11,7 +12,7 @@ namespace LicitaEdital.Core.Companies.CompanyProfileAggregate;
 /// pede (SEC-64) — o cadastro rico da empresa e' o assistente de registro, que hoje nem endpoint tem
 /// (AD-041).
 /// </summary>
-public class CompanyProfile : EntityBase<CompanyProfile, CompanyProfileId>, IAggregateRoot
+public class CompanyProfile : AggregateRoot<CompanyProfileId>, ITenantScoped
 {
   private CompanyProfile(OrganizationId organizationId, CompanyName companyName, Cnpj cnpj,
     string city, StateCode state, string businessArea)
@@ -31,31 +32,21 @@ public class CompanyProfile : EntityBase<CompanyProfile, CompanyProfileId>, IAgg
   public StateCode State { get; private set; }
   public string BusinessArea { get; private set; }
 
-  public DateTimeOffset CreatedAt { get; private set; }
-  public DateTimeOffset UpdatedAt { get; private set; }
+  Guid ITenantScoped.TenantId => OrganizationId.Value;
 
   public static CompanyProfile Create(OrganizationId organizationId, CompanyName companyName,
-    Cnpj cnpj, string city, StateCode state, string businessArea, TimeProvider clock)
-  {
-    var now = clock.GetUtcNow();
-    return new CompanyProfile(organizationId, companyName, cnpj, city, state, businessArea)
-    {
-      Id = CompanyProfileId.New(),
-      CreatedAt = now,
-      UpdatedAt = now
-    };
-  }
+    Cnpj cnpj, string city, StateCode state, string businessArea)
+    => new(organizationId, companyName, cnpj, city, state, businessArea);
 
   /// <summary>`PUT /company-profile` e' upsert: quando o perfil ja existe, o corpo substitui tudo.</summary>
   public CompanyProfile Update(CompanyName companyName, Cnpj cnpj, string city, StateCode state,
-    string businessArea, TimeProvider clock)
+    string businessArea)
   {
     CompanyName = companyName;
     Cnpj = cnpj;
     City = city;
     State = state;
     BusinessArea = businessArea;
-    UpdatedAt = clock.GetUtcNow();
     return this;
   }
 }

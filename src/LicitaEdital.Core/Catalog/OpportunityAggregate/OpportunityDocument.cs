@@ -1,25 +1,24 @@
-﻿using Vogen;
+﻿using LicitaEdital.BuildingBlocks.Domain.Identifiers;
+using Vogen;
 
 namespace LicitaEdital.Core.Catalog.OpportunityAggregate;
 
 [ValueObject<Guid>]
-public readonly partial struct OpportunityDocumentId
+public readonly partial struct OpportunityDocumentId : IGuidId<OpportunityDocumentId>
 {
-  public static OpportunityDocumentId New() => From(Guid.CreateVersion7());
-
   private static Validation Validate(Guid value)
       => value != Guid.Empty ? Validation.Ok : Validation.Invalid("OpportunityDocumentId nao pode ser vazio.");
 }
 
 /// <summary>
-/// Edital e anexos publicados pela fonte. Guardamos **a URL oficial**, nunca os bytes: o documento
-/// e' publico, pertence ao orgao, e baixa-lo para o nosso storage criaria copia com validade
-/// propria — retificacao publicada depois tornaria a copia mentirosa em silencio.
+/// Edital e anexos publicados pela fonte. Guardamos **a URL oficial**, nunca os bytes: o documento e'
+/// publico, pertence ao orgao, e baixa-lo para o nosso storage criaria copia com validade propria —
+/// retificacao publicada depois tornaria a copia mentirosa em silencio.
 ///
 /// Nao confundir com o cofre documental (modulo Documents, Fase 7), que guarda documento **da
 /// empresa**, em versao imutavel e com bytes sob nosso controle.
 /// </summary>
-public class OpportunityDocument : EntityBase<OpportunityDocument, OpportunityDocumentId>
+public class OpportunityDocument : Entity<OpportunityDocumentId>
 {
   private OpportunityDocument(OpportunityDocumentKind kind, string label, string url,
     DateTimeOffset? publishedAt)
@@ -40,5 +39,5 @@ public class OpportunityDocument : EntityBase<OpportunityDocument, OpportunityDo
 
   public static OpportunityDocument Create(OpportunityDocumentKind kind, string label, string url,
     DateTimeOffset? publishedAt)
-    => new(kind, label, url, publishedAt) { Id = OpportunityDocumentId.New() };
+    => new(kind, label, url, publishedAt);
 }

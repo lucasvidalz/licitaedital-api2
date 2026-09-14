@@ -1,16 +1,20 @@
-﻿namespace LicitaEdital.Core.Collections.CollectionRunAggregate;
+﻿using LicitaEdital.BuildingBlocks.Domain.Entities;
+
+namespace LicitaEdital.Core.Collections.CollectionRunAggregate;
 
 /// <summary>
-/// Uma execucao do coletor. **Sem `OrganizationId`, e de proposito**: a coleta e' da plataforma, nao
-/// de um cliente — e' o painel `/gfe/collections`, atras da permissao `collections.read`. E' a
-/// segunda e ultima excecao a D-02, junto de <see cref="LicitaEdital.Core.Catalog.OpportunityAggregate.Opportunity"/>.
+/// Uma execucao do coletor. **Sem tenant, e de proposito**: a coleta e' da plataforma, nao de um
+/// cliente — e' o painel `/gfe/collections`, atras da permissao `collections.read`.
+///
+/// **Sem soft delete**, por isso herda de <c>AuditableEntity</c>: registro de execucao e' historico
+/// por definicao, e nao existe cenario em que apagar um deles seja a operacao certa.
 ///
 /// `lastSuccessfulRunAt`, que o envelope da listagem carrega, e' **derivado** — o maior
 /// <see cref="EndedAt"/> entre as execucoes com <see cref="CollectionRunResult.Success"/>. Nao
 /// guarde num contador a parte: dois lugares para a mesma verdade divergem na primeira falha
 /// parcial.
 /// </summary>
-public class CollectionRun : EntityBase<CollectionRun, CollectionRunId>, IAggregateRoot
+public class CollectionRun : AuditableEntity<CollectionRunId>, IAggregateRoot
 {
   private CollectionRun(DateTimeOffset startedAt)
   {
@@ -29,8 +33,7 @@ public class CollectionRun : EntityBase<CollectionRun, CollectionRunId>, IAggreg
   /// <summary>Mensagem tecnica da falha. Nao expor detalhe interno ao cliente (SEC-64).</summary>
   public string? ErrorMessage { get; private set; }
 
-  public static CollectionRun Start(TimeProvider clock)
-      => new(clock.GetUtcNow()) { Id = CollectionRunId.New() };
+  public static CollectionRun Start(TimeProvider clock) => new(clock.GetUtcNow());
 
   public CollectionRun Complete(CollectionRunResult result, int newOpportunitiesCount,
     string? errorMessage, TimeProvider clock)

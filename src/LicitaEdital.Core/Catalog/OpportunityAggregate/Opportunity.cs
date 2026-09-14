@@ -4,16 +4,15 @@ using LicitaEdital.Core.Shared;
 namespace LicitaEdital.Core.Catalog.OpportunityAggregate;
 
 /// <summary>
-/// Licitacao publicada, como a fonte a divulgou. **Nao tem `OrganizationId`**: e' dado publico,
-/// compartilhado por todos os clientes — a unica excecao a regra D-02, e deliberada. O que e'
-/// privado de cada organizacao e' a compatibilidade
-/// (<see cref="CompatibilityAggregate.OpportunityCompatibility"/>) e o salvamento
-/// (modulo Engagement), que sao entidades separadas justamente por isso.
+/// Licitacao publicada, como a fonte a divulgou. **Nao implementa `ITenantScoped`**: e' dado publico,
+/// compartilhado por todos os clientes. O que e' privado de cada organizacao e' a compatibilidade
+/// (<see cref="LicitaEdital.Core.Catalog.CompatibilityAggregate.OpportunityCompatibility"/>) e o
+/// salvamento (modulo Engagement), entidades separadas justamente por isso.
 ///
-/// Identidade de negocio e' o par <see cref="Source"/> + <see cref="ExternalReference"/>, unico:
-/// e' o que torna a coleta idempotente — reprocessar a mesma execucao atualiza, nunca duplica.
+/// Identidade de negocio e' o par <see cref="Source"/> + <see cref="ExternalReference"/>, unico: e'
+/// o que torna a coleta idempotente — reprocessar a mesma execucao atualiza, nunca duplica.
 /// </summary>
-public class Opportunity : EntityBase<Opportunity, OpportunityId>, IAggregateRoot
+public class Opportunity : AggregateRoot<OpportunityId>
 {
   private readonly List<OpportunityLineItem> _items = [];
   private readonly List<OpportunityDocument> _documents = [];
@@ -71,11 +70,12 @@ public class Opportunity : EntityBase<Opportunity, OpportunityId>, IAggregateRoo
 
   public string OfficialUrl { get; private set; }
 
-  /// <summary>Quando a coleta leu esta versao. E' o que a tela mostra como "ultimo dado obtido".</summary>
+  /// <summary>
+  /// Quando a coleta leu esta versao — o que a tela mostra como "ultimo dado obtido". Distinto de
+  /// <c>UpdatedAt</c>, que e' quando a **nossa linha** mudou: uma coleta pode confirmar que nada
+  /// mudou e ainda assim renovar este campo.
+  /// </summary>
   public DateTimeOffset CollectedAt { get; private set; }
-
-  public DateTimeOffset CreatedAt { get; private set; }
-  public DateTimeOffset UpdatedAt { get; private set; }
 
   public IReadOnlyCollection<OpportunityLineItem> Items => _items.AsReadOnly();
   public IReadOnlyCollection<OpportunityDocument> Documents => _documents.AsReadOnly();
@@ -83,19 +83,13 @@ public class Opportunity : EntityBase<Opportunity, OpportunityId>, IAggregateRoo
   public static Opportunity Publish(string source, string externalReference, string title,
     string @object, string buyerName, StateCode state, string city, Modality modality,
     OpportunityStatus status, string officialUrl, DateTimeOffset publishedAt,
-    DateTimeOffset collectedAt, TimeProvider clock)
-  {
-    var now = clock.GetUtcNow();
-    return new Opportunity(source, externalReference, title, @object, buyerName, state, city,
-      modality, status, officialUrl)
+    DateTimeOffset collectedAt)
+    => new(source, externalReference, title, @object, buyerName, state, city, modality, status,
+      officialUrl)
     {
-      Id = OpportunityId.New(),
       PublishedAt = publishedAt,
-      CollectedAt = collectedAt,
-      CreatedAt = now,
-      UpdatedAt = now
+      CollectedAt = collectedAt
     };
-  }
 
   public Opportunity WithLocationDetail(string? cityIbgeCode, string? contractNumber)
   {
@@ -116,13 +110,12 @@ public class Opportunity : EntityBase<Opportunity, OpportunityId>, IAggregateRoo
   /// compatibilidade seja recalculada — score sobre objeto desatualizado e' pior que score ausente.
   /// </summary>
   public Opportunity Refresh(OpportunityStatus status, long? estimatedValueCents,
-    DateTimeOffset? proposalDeadline, DateTimeOffset collectedAt, TimeProvider clock)
+    DateTimeOffset? proposalDeadline, DateTimeOffset collectedAt)
   {
     Status = status;
     EstimatedValueCents = estimatedValueCents;
     ProposalDeadline = proposalDeadline;
     CollectedAt = collectedAt;
-    UpdatedAt = clock.GetUtcNow();
     RegisterDomainEvent(new OpportunityRefreshedEvent(Id));
     return this;
   }

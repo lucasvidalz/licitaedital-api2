@@ -27,7 +27,12 @@ primeiro, padrão por camada depois.
    `Infrastructure/Data/EfRepository.cs`, `Core/Interfaces/`.
 5. **Migração de banco é arquivo gerado, nunca escrito à mão.** Sempre via `dotnet ef migrations
    add` (comando exato na seção *Comandos*), e sempre revisada antes de aceitar.
-6. **Não commitar.** Commit é papel do dev. Também não compile para validar — o dev faz isso.
+6. **A base vem da lib, nunca reescrita aqui.** Entidade, evento de domínio, repositório, CQRS,
+   autenticação, interceptors de persistência e ProblemDetails moram em
+   `LicitaEdital.BuildingBlocks` (repositório irmão, consumido por pacote). Antes de escrever
+   qualquer classe base, procure lá. Se falta algo, o lugar de acrescentar é a lib — **desde que o
+   tipo não conheça o produto**; se ele precisa da palavra "licitação", é daqui.
+7. **Não commitar.** Commit é papel do dev. Também não compile para validar — o dev faz isso.
 
 ---
 
@@ -80,47 +85,63 @@ Um diretório por **módulo**, e dentro dele um por agregado:
 dentro quando houver. Os módulos são `Identity`, `Companies`, `Catalog`, `Offerings`, `Engagement`,
 `Collections` — e `Shared`, só para os ids que atravessam módulo.
 
-**Entidade / raiz de agregado** — herda de `EntityBase<TEntity, TId>` do `Ardalis.SharedKernel` e
-marca a raiz com `IAggregateRoot`. Setter é privado; mudança de estado passa por método que carrega
-a intenção e registra o evento de domínio:
+**Entidade / raiz de agregado** — herda de uma das três bases da lib. Setter é privado; mudança de
+estado passa por método que carrega a intenção e registra o evento de domínio:
+
+| Base | Dá | Use quando |
+| --- | --- | --- |
+| `Entity<TId>` | id UUID v7 automático, eventos, igualdade | filho de agregado |
+| `AuditableEntity<TId>` | + `CreatedAt/By`, `UpdatedAt/By` | raiz que **não** deve ter soft delete — projeção, registro de execução, alternador |
+| `AggregateRoot<TId>` | + `IAggregateRoot`, `IsActive`, `DeletedAt/By` | o default de uma raiz |
 
 ```csharp
-public class Company(CompanyName name) : EntityBase<Company, CompanyId>, IAggregateRoot
+public class Company : AggregateRoot<CompanyId>, ITenantScoped
 {
-  public CompanyName Name { get; private set; } = name;
+  private Company(CompanyName name) { Name = name; }
+
+  public CompanyName Name { get; private set; }
+  public OrganizationId OrganizationId { get; private set; }
+
+  Guid ITenantScoped.TenantId => OrganizationId.Value;
+
+  public static Company Create(CompanyName name) => new(name);
 
   public Company UpdateName(CompanyName newName)
   {
     if (Name == newName) return this;
     Name = newName;
-    RegisterDomainEvent(new CompanyNameUpdatedEvent(this));
+    RegisterDomainEvent(new CompanyNameUpdatedEvent(Id));
     return this;
   }
 }
 ```
 
+**Nunca redeclare `Id`, `CreatedAt`, `UpdatedAt` nem `IsActive`** — vêm da base, e uma cópia local
+seria a segunda fonte da mesma verdade. Factory **não recebe `TimeProvider`** só para carimbar data:
+o interceptor de auditoria faz isso. `TimeProvider` só entra quando a data é fato de negócio
+(`CollectedAt`, `StartedAt`, `CalculatedAt`).
+
 **Value object e Id** — `Vogen`, com validação no próprio tipo. A configuração global do Vogen
-(`[assembly: VogenDefaults]`) mora em `Core/VogenConfiguration.cs`; não a duplique.
+(`[assembly: VogenDefaults]`) mora em `Core/VogenConfiguration.cs`; não a duplique. Todo id declara
+`IGuidId<TSelf>`, que é o contrato pelo qual a base gera o valor:
 
 ```csharp
 [ValueObject<Guid>]
-public readonly partial struct CompanyId
+public readonly partial struct CompanyId : IGuidId<CompanyId>
 {
-  public static CompanyId New() => From(Guid.CreateVersion7());
-
   private static Validation Validate(Guid value)
       => value != Guid.Empty ? Validation.Ok : Validation.Invalid("CompanyId nao pode ser vazio.");
 }
 ```
 
-Id é `Guid` v7 **gerado na factory do agregado** (D-04), nunca pelo banco: ordenável por tempo, não
-vaza volume, e o mapeamento usa `ValueGeneratedNever()`.
+Id é `Guid` v7 **gerado no construtor da entidade** (D-04), nunca pelo banco: ordenável por tempo,
+não vaza volume, e o mapeamento usa `ValueGeneratedNever()`. Nenhuma factory chama `New()`.
 
 **Enum de domínio** — `Ardalis.SmartEnum`, não `enum` nativo, quando o valor tem comportamento ou
 precisa persistir estável.
 
-**Evento de domínio** — `record` herdando `DomainEventBase`, disparado por `RegisterDomainEvent` na
-entidade (ou `IMediator.Publish` num serviço de domínio, quando não há entidade viva — caso de
+**Evento de domínio** — `record` herdando `DomainEvent` (da lib), disparado por
+`RegisterDomainEvent` na entidade (ou `IMediator.Publish` num serviço de domínio, quando não há entidade viva — caso de
 delete). O despacho acontece depois do `SaveChanges`, em
 `Infrastructure/Data/EventDispatcherInterceptor.cs`. **Handler de evento nunca recebe `DbContext`.**
 
@@ -176,11 +197,18 @@ em [`docs/modelagem-dados.md`](docs/modelagem-dados.md).
   (`[EfCoreConverter<T>]`) e de `.HasVogenConversion()` na propriedade. **Sem a entrada lá, a coluna
   simplesmente não é gerada — e não há erro de compilação.**
 - **Nada de FK entre schemas.** Referência a outro módulo é o id puro, sem propriedade de navegação.
-- Repositório genérico é `EfRepository<TContext, T>`, e cada agregado é registrado **fechado** em
-  `InfrastructureServiceExtensions.AddAggregate<TContext, TAggregate>()`. Agregado novo sem esse
-  registro falha em runtime, não na compilação.
-- Todo agregado mutável leva `UseXminAsConcurrencyToken()`; toda coluna nasce `snake_case` por
-  `UseSnakeCaseNames()`, chamado no fim de cada `OnModelCreating`.
+- Repositório genérico é `EfRepository<TContext, T>` (**da lib**), e cada agregado é registrado
+  **fechado** em `InfrastructureServiceExtensions.AddAggregate<TContext, TAggregate>()`. Agregado
+  novo sem esse registro falha em runtime, não na compilação.
+- `snake_case`, filtro de soft delete e aplicação das configurações do módulo vêm de
+  `ModuleDbContext` da lib. Só o `IdentityDbContext` fica de fora, porque precisa da base do ASP.NET
+  Identity — ele chama `ApplyModuleConventions` direto.
+- Auditoria, soft delete, guarda de tenant e despacho de eventos são **4 interceptors da lib**,
+  ligados por `options.AddBuildingBlocksInterceptors(provider)`. Não carimbe data nem autor no
+  handler.
+- Todo agregado mutável leva `UseXminAsConcurrencyToken()`.
+- **Índice único sobre entidade com soft delete leva `.ActiveOnly()`** — sem o filtro parcial, a
+  linha excluída continua ocupando o índice e o recadastro falha contra um registro invisível.
 - Nunca vaze tipo de EF Core (`DbContext`, `IQueryable` de entidade) para `UseCases` ou `Web`.
 
 ### Web — API
@@ -276,6 +304,9 @@ dotnet ef database update -c CatalogDbContext \
   -p ../LicitaEdital.Infrastructure/LicitaEdital.Infrastructure.csproj \
   -s LicitaEdital.Web.csproj
 ```
+
+Mudou a lib? O ciclo é: subir `VersionPrefix` lá, `dotnet pack -c Release` (o `.nupkg` cai direto no
+feed), atualizar a versão em `Directory.Packages.props` daqui e restaurar.
 
 Em desenvolvimento a API sobe com Scalar em `/scalar` e Swagger em `/swagger`; a lista de serviços
 registrados fica em `/listservices`.

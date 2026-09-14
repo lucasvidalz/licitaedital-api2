@@ -14,6 +14,8 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
       .HasMaxLength(ApplicationUser.DisplayNameMaxLength)
       .IsRequired();
 
+    // Proprio do ApplicationUser: ele nao herda a auditoria da lib, porque a base dele e
+    // o IdentityUser do framework.
     builder.Property(user => user.CreatedAt).IsRequired();
 
     // Unicidade de e-mail e' do Identity (NormalizedEmail), mas ela chega como indice nao-unico

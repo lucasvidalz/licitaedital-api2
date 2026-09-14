@@ -18,7 +18,6 @@ public class SavedOpportunityConfiguration : IEntityTypeConfiguration<SavedOppor
     builder.Property(saved => saved.OpportunityId).HasVogenConversion().IsRequired();
 
     builder.Property(saved => saved.SavedBy).HasVogenConversion().IsRequired();
-    builder.Property(saved => saved.SavedAt).IsRequired();
 
     // Salvar duas vezes e' idempotente. E' esta unicidade — e nao uma checagem na aplicacao — que
     // garante isso sob concorrencia: dois cliques simultaneos no mesmo card colidem aqui.
@@ -27,7 +26,7 @@ public class SavedOpportunityConfiguration : IEntityTypeConfiguration<SavedOppor
       .HasDatabaseName("ux_saved_opportunities_organization_opportunity");
 
     // `GET /saved-opportunities` lista por organizacao, mais recentes primeiro.
-    builder.HasIndex(saved => new { saved.OrganizationId, saved.SavedAt })
-      .HasDatabaseName("ix_saved_opportunities_organization_saved_at");
+    builder.HasIndex(saved => new { saved.OrganizationId, saved.CreatedAt })
+      .HasDatabaseName("ix_saved_opportunities_organization_created_at");
   }
 }

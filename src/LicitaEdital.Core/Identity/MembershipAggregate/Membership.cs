@@ -1,4 +1,5 @@
-﻿using LicitaEdital.Core.Identity.MembershipAggregate.Events;
+﻿using LicitaEdital.BuildingBlocks.Domain.Entities;
+using LicitaEdital.Core.Identity.MembershipAggregate.Events;
 using LicitaEdital.Core.Identity.RoleAggregate;
 using LicitaEdital.Core.Shared;
 
@@ -9,10 +10,13 @@ namespace LicitaEdital.Core.Identity.MembershipAggregate;
 /// registro de identidade —, porque um mesmo usuario pode pertencer a mais de uma organizacao e a
 /// resposta de `GET /auth/me` depende de qual esta ativa na sessao.
 ///
-/// `AuthUser.permissions` (contrato) sai do <see cref="RoleId"/>, resolvido no servidor. Permissao
-/// nunca chega pelo payload do cliente (SEC-08).
+/// **<see cref="Status"/> e <c>IsActive</c> nao sao a mesma coisa, e a distincao importa.**
+/// <see cref="Status"/> e' conceito de produto: a conta esta habilitada ou suspensa, e o
+/// gerenciador alterna por `POST /users/{id}/activate|deactivate`. <c>IsActive</c>, herdado de
+/// <c>AggregateRoot</c>, e' exclusao logica da linha: o vinculo foi removido da organizacao. Conta
+/// suspensa continua na lista de usuarios; vinculo excluido some dela.
 /// </summary>
-public class Membership : EntityBase<Membership, MembershipId>, IAggregateRoot
+public class Membership : AggregateRoot<MembershipId>, ITenantScoped
 {
   private Membership(OrganizationId organizationId, UserId userId, UserArea area, RoleId roleId)
   {
@@ -32,46 +36,37 @@ public class Membership : EntityBase<Membership, MembershipId>, IAggregateRoot
   public RoleId RoleId { get; private set; }
   public MembershipStatus Status { get; private set; }
 
-  public DateTimeOffset JoinedAt { get; private set; }
-  public DateTimeOffset UpdatedAt { get; private set; }
-
   /// <summary>
-  /// Ultimo login bem-sucedido, exposto por `GET /users/{id}` (`user.model.ts:12`). Fica no
-  /// vinculo, e nao no usuario, porque a tela de gerenciamento lista o acesso dentro de uma
-  /// organizacao.
+  /// Ultimo login bem-sucedido, exposto por `GET /users/{id}` (`user.model.ts:12`). Fica no vinculo,
+  /// e nao no usuario, porque a tela de gerenciamento lista o acesso dentro de uma organizacao.
   /// </summary>
   public DateTimeOffset? LastLoginAt { get; private set; }
 
-  public static Membership Create(OrganizationId organizationId, UserId userId, UserArea area,
-    RoleId roleId, TimeProvider clock)
-  {
-    var now = clock.GetUtcNow();
-    return new Membership(organizationId, userId, area, roleId) { Id = MembershipId.New(), JoinedAt = now, UpdatedAt = now };
-  }
+  Guid ITenantScoped.TenantId => OrganizationId.Value;
 
-  public Membership Activate(TimeProvider clock)
+  public static Membership Create(OrganizationId organizationId, UserId userId, UserArea area,
+    RoleId roleId)
+    => new(organizationId, userId, area, roleId);
+
+  public Membership Activate()
   {
     if (Status == MembershipStatus.Active) return this;
     Status = MembershipStatus.Active;
-    UpdatedAt = clock.GetUtcNow();
     RegisterDomainEvent(new MembershipStatusChangedEvent(Id, MembershipStatus.Active));
     return this;
   }
 
-  public Membership Deactivate(TimeProvider clock)
+  public Membership Deactivate()
   {
     if (Status == MembershipStatus.Inactive) return this;
     Status = MembershipStatus.Inactive;
-    UpdatedAt = clock.GetUtcNow();
     RegisterDomainEvent(new MembershipStatusChangedEvent(Id, MembershipStatus.Inactive));
     return this;
   }
 
-  public Membership AssignRole(RoleId roleId, TimeProvider clock)
+  public Membership AssignRole(RoleId roleId)
   {
-    if (RoleId == roleId) return this;
     RoleId = roleId;
-    UpdatedAt = clock.GetUtcNow();
     return this;
   }
 

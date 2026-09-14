@@ -82,9 +82,6 @@ public class OpportunityConfiguration : IEntityTypeConfiguration<Opportunity>
       .HasMaxLength(DataSchemaConstants.UrlLength)
       .IsRequired();
 
-    builder.Property(opportunity => opportunity.CreatedAt).IsRequired();
-    builder.Property(opportunity => opportunity.UpdatedAt).IsRequired();
-
     // Colecoes do agregado: campo privado, sem propriedade publica gravavel. A navegacao e'
     // declarada pelo nome do campo porque a convencao do EF nao descobre campo privado sozinha.
     builder.HasMany<OpportunityLineItem>("_items")
@@ -103,7 +100,8 @@ public class OpportunityConfiguration : IEntityTypeConfiguration<Opportunity>
     // linha existente em vez de criar uma segunda licitacao identica.
     builder.HasIndex(opportunity => new { opportunity.Source, opportunity.ExternalReference })
       .IsUnique()
-      .HasDatabaseName("ux_opportunities_source_external_reference");
+      .HasDatabaseName("ux_opportunities_source_external_reference")
+      .ActiveOnly();
 
     // Indices do feed: o filtro de `GET /opportunities` combina UF, modalidade e valor, e ordena
     // por prazo ou publicacao. `sort=score` nao passa por aqui — ordena pela projecao de

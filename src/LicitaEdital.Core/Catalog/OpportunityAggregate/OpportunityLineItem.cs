@@ -1,12 +1,11 @@
-﻿using Vogen;
+﻿using LicitaEdital.BuildingBlocks.Domain.Identifiers;
+using Vogen;
 
 namespace LicitaEdital.Core.Catalog.OpportunityAggregate;
 
 [ValueObject<Guid>]
-public readonly partial struct OpportunityLineItemId
+public readonly partial struct OpportunityLineItemId : IGuidId<OpportunityLineItemId>
 {
-  public static OpportunityLineItemId New() => From(Guid.CreateVersion7());
-
   private static Validation Validate(Guid value)
       => value != Guid.Empty ? Validation.Ok : Validation.Invalid("OpportunityLineItemId nao pode ser vazio.");
 }
@@ -15,11 +14,14 @@ public readonly partial struct OpportunityLineItemId
 /// Item publicado pela licitacao. So aparece no detalhe (`GET /opportunities/{id}`), nunca na
 /// listagem — carregar item em pagina de 20 oportunidades multiplicaria a consulta sem uso na tela.
 ///
-/// Pertence ao agregado <see cref="Opportunity"/>: nao tem repositorio proprio e nao se altera
-/// isoladamente. Valor unitario e total sao **centavos**, e podem faltar — orgao nem sempre publica
-/// estimativa por item.
+/// Herda de <c>Entity</c>, e nao de <c>AggregateRoot</c>: e' filho do agregado, sem repositorio
+/// proprio, sem auditoria e **sem soft delete** — item que a fonte deixou de publicar some de
+/// verdade, porque nao tem historico proprio a preservar.
+///
+/// Valor unitario e total sao **centavos**, e podem faltar: orgao nem sempre publica estimativa por
+/// item.
 /// </summary>
-public class OpportunityLineItem : EntityBase<OpportunityLineItem, OpportunityLineItemId>
+public class OpportunityLineItem : Entity<OpportunityLineItemId>
 {
   private OpportunityLineItem(int number, string description, decimal quantity, string unit,
     long? unitValueCents, long? totalValueCents, string? catalogCode)
@@ -47,8 +49,5 @@ public class OpportunityLineItem : EntityBase<OpportunityLineItem, OpportunityLi
 
   public static OpportunityLineItem Create(int number, string description, decimal quantity,
     string unit, long? unitValueCents, long? totalValueCents, string? catalogCode)
-    => new(number, description, quantity, unit, unitValueCents, totalValueCents, catalogCode)
-    {
-      Id = OpportunityLineItemId.New()
-    };
+    => new(number, description, quantity, unit, unitValueCents, totalValueCents, catalogCode);
 }

@@ -26,15 +26,14 @@ public class MembershipConfiguration : IEntityTypeConfiguration<Membership>
       .HasMaxLength(DataSchemaConstants.DefaultCodeLength)
       .IsRequired();
 
-    builder.Property(membership => membership.JoinedAt).IsRequired();
-    builder.Property(membership => membership.UpdatedAt).IsRequired();
     builder.Property(membership => membership.LastLoginAt);
 
     // Um vinculo por par (organizacao, usuario). Sem isto, convidar duas vezes daria dois vinculos
     // com papeis diferentes e `GET /auth/me` teria duas respostas possiveis para a mesma sessao.
     builder.HasIndex(membership => new { membership.OrganizationId, membership.UserId })
       .IsUnique()
-      .HasDatabaseName("ux_memberships_organization_user");
+      .HasDatabaseName("ux_memberships_organization_user")
+      .ActiveOnly();
 
     // `GET /users?status=&search=` pagina por organizacao e situacao.
     builder.HasIndex(membership => new { membership.OrganizationId, membership.Status })

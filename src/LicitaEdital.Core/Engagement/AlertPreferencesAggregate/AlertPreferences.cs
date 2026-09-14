@@ -1,4 +1,5 @@
-﻿using LicitaEdital.Core.Shared;
+﻿using LicitaEdital.BuildingBlocks.Domain.Entities;
+using LicitaEdital.Core.Shared;
 
 namespace LicitaEdital.Core.Engagement.AlertPreferencesAggregate;
 
@@ -9,7 +10,7 @@ namespace LicitaEdital.Core.Engagement.AlertPreferencesAggregate;
 /// visualizacao e moram no navegador (AD-044 do frontend); o que chega ao servidor e' so o que muda
 /// o comportamento do produto — quais alertas disparar, com que frequencia e sobre qual recorte.
 /// </summary>
-public class AlertPreferences : EntityBase<AlertPreferences, AlertPreferencesId>, IAggregateRoot
+public class AlertPreferences : AggregateRoot<AlertPreferencesId>, ITenantScoped
 {
   private readonly List<StateCode> _filterStates = [];
   private readonly List<string> _filterModalities = [];
@@ -33,30 +34,19 @@ public class AlertPreferences : EntityBase<AlertPreferences, AlertPreferencesId>
   /// <summary>Faixa de valor do recorte padrao, como chave simbolica.</summary>
   public ValueRange FilterValueRange { get; private set; }
 
-  public DateTimeOffset CreatedAt { get; private set; }
-  public DateTimeOffset UpdatedAt { get; private set; }
-
   /// <summary>Leitura agrupada dos tres campos de filtro, na forma que o contrato usa.</summary>
   public AlertFilter Filter => new(_filterStates.AsReadOnly(), _filterModalities.AsReadOnly(), FilterValueRange);
+
+  Guid ITenantScoped.TenantId => OrganizationId.Value;
 
   /// <summary>
   /// Organizacao sem preferencia gravada recebe este padrao — `GET /settings` nunca responde 404,
   /// diferente de `/company-profile`. A tela de configuracoes nao tem estado "ainda nao cadastrado".
   /// </summary>
-  public static AlertPreferences CreateDefault(OrganizationId organizationId, TimeProvider clock)
-  {
-    var now = clock.GetUtcNow();
-    return new AlertPreferences(organizationId, AlertTypes.Default, AlertFrequency.DailyDigest,
-      ValueRange.Unset)
-    {
-      Id = AlertPreferencesId.New(),
-      CreatedAt = now,
-      UpdatedAt = now
-    };
-  }
+  public static AlertPreferences CreateDefault(OrganizationId organizationId)
+      => new(organizationId, AlertTypes.Default, AlertFrequency.DailyDigest, ValueRange.Unset);
 
-  public AlertPreferences Update(AlertTypes types, AlertFrequency frequency, AlertFilter filter,
-    TimeProvider clock)
+  public AlertPreferences Update(AlertTypes types, AlertFrequency frequency, AlertFilter filter)
   {
     Types = types;
     Frequency = frequency;
@@ -67,7 +57,6 @@ public class AlertPreferences : EntityBase<AlertPreferences, AlertPreferencesId>
     _filterModalities.AddRange(filter.Modalities.Distinct(StringComparer.OrdinalIgnoreCase));
     FilterValueRange = filter.ValueRange;
 
-    UpdatedAt = clock.GetUtcNow();
     return this;
   }
 }

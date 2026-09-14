@@ -1,4 +1,5 @@
-﻿using LicitaEdital.Core.Shared;
+﻿using LicitaEdital.BuildingBlocks.Domain.Entities;
+using LicitaEdital.Core.Shared;
 
 namespace LicitaEdital.Core.Collections.CoverageSettingsAggregate;
 
@@ -6,12 +7,12 @@ namespace LicitaEdital.Core.Collections.CoverageSettingsAggregate;
 /// Ate onde o radar cobre: `GET`/`PUT /gfe/settings`. E' configuracao **da plataforma**, editada
 /// pela area de gerenciamento, e por isso mora em Collections — ela governa o que o coletor busca,
 /// nao a preferencia de um cliente (isso e'
-/// <see cref="Engagement.AlertPreferencesAggregate.AlertPreferences"/>).
+/// <see cref="LicitaEdital.Core.Engagement.AlertPreferencesAggregate.AlertPreferences"/>).
 ///
-/// Singleton: existe uma linha so. O id existe porque o EF Core precisa de chave, nao porque haja
-/// mais de uma cobertura.
+/// Singleton, sem tenant e sem soft delete. O id existe porque o EF Core precisa de chave, nao
+/// porque haja mais de uma cobertura.
 /// </summary>
-public class CoverageSettings : EntityBase<CoverageSettings, CoverageSettingsId>, IAggregateRoot
+public class CoverageSettings : AuditableEntity<CoverageSettingsId>, IAggregateRoot
 {
   private readonly List<StateCode> _attendedStates = [];
 
@@ -24,18 +25,14 @@ public class CoverageSettings : EntityBase<CoverageSettings, CoverageSettingsId>
   public IReadOnlyCollection<StateCode> AttendedStates => _attendedStates.AsReadOnly();
 
   public ValueRange ValueRange { get; private set; }
-  public DateTimeOffset UpdatedAt { get; private set; }
 
-  public static CoverageSettings CreateDefault(TimeProvider clock)
-      => new(ValueRange.Unset) { Id = CoverageSettingsId.New(), UpdatedAt = clock.GetUtcNow() };
+  public static CoverageSettings CreateDefault() => new(ValueRange.Unset);
 
-  public CoverageSettings Update(IEnumerable<StateCode> attendedStates, ValueRange valueRange,
-    TimeProvider clock)
+  public CoverageSettings Update(IEnumerable<StateCode> attendedStates, ValueRange valueRange)
   {
     _attendedStates.Clear();
     _attendedStates.AddRange(attendedStates.Distinct());
     ValueRange = valueRange;
-    UpdatedAt = clock.GetUtcNow();
     return this;
   }
 }

@@ -26,8 +26,6 @@ public class CoverageSettingsConfiguration : IEntityTypeConfiguration<CoverageSe
       .HasMaxLength(DataSchemaConstants.DefaultCodeLength)
       .IsRequired();
 
-    builder.Property(settings => settings.UpdatedAt).IsRequired();
-
     builder.UseXminAsConcurrencyToken();
   }
 }

@@ -1,4 +1,5 @@
-﻿using LicitaEdital.Core.Shared;
+﻿using LicitaEdital.BuildingBlocks.Domain.Entities;
+using LicitaEdital.Core.Shared;
 
 namespace LicitaEdital.Core.Catalog.CompatibilityAggregate;
 
@@ -8,16 +9,16 @@ namespace LicitaEdital.Core.Catalog.CompatibilityAggregate;
 /// tiverem proprietario, versao e estrategia de atualizacao").
 ///
 /// Mora em Catalog, e nao em Offerings, por uma razao de consulta: `GET /opportunities?sort=score`
-/// filtra por estado, modalidade e valor **e** ordena por score na mesma pagina. Com a nota em
-/// outro schema, isso exigiria join entre modulos — proibido — ou duas consultas que nao paginam
-/// juntas.
+/// filtra por estado, modalidade e valor **e** ordena por score na mesma pagina. Com a nota em outro
+/// schema, isso exigiria join entre modulos — proibido — ou duas consultas que nao paginam juntas.
 ///
-/// Uma linha por (organizacao, licitacao): guardamos **a melhor** oferta, que e' o que o contrato
-/// expoe. <see cref="EngineVersion"/> e <see cref="CalculatedAt"/> sao a estrategia de atualizacao:
-/// mudou a versao do motor, a linha esta obsoleta e entra na fila de recalculo.
+/// **Herda de <c>AuditableEntity</c>, nao de <c>AggregateRoot</c>: projecao nao tem soft delete.**
+/// Linha obsoleta deve sumir de verdade no recalculo; mantida como inativa, ela apareceria em
+/// qualquer consulta que esquecesse o filtro e competiria pela unicidade
+/// (organizacao, licitacao) com a linha nova.
 /// </summary>
-public class OpportunityCompatibility
-  : EntityBase<OpportunityCompatibility, OpportunityCompatibilityId>, IAggregateRoot
+public class OpportunityCompatibility : AuditableEntity<OpportunityCompatibilityId>,
+  IAggregateRoot, ITenantScoped
 {
   private readonly List<string> _matchedTerms = [];
   private readonly List<string> _positiveReasons = [];
@@ -56,13 +57,11 @@ public class OpportunityCompatibility
 
   public DateTimeOffset CalculatedAt { get; private set; }
 
+  Guid ITenantScoped.TenantId => OrganizationId.Value;
+
   public static OpportunityCompatibility Unrated(OrganizationId organizationId,
     OpportunityId opportunityId, string engineVersion, TimeProvider clock)
-    => new(organizationId, opportunityId, engineVersion)
-    {
-      Id = OpportunityCompatibilityId.New(),
-      CalculatedAt = clock.GetUtcNow()
-    };
+    => new(organizationId, opportunityId, engineVersion) { CalculatedAt = clock.GetUtcNow() };
 
   public OpportunityCompatibility Rate(OfferingId offeringId, string offeringName,
     CompatibilityScore score, IEnumerable<string> matchedTerms, IEnumerable<string> positiveReasons,
@@ -74,16 +73,19 @@ public class OpportunityCompatibility
     EngineVersion = engineVersion;
     CalculatedAt = clock.GetUtcNow();
 
-    _matchedTerms.Clear();
-    _matchedTerms.AddRange(matchedTerms);
-    _positiveReasons.Clear();
-    _positiveReasons.AddRange(positiveReasons);
-    _attentionPoints.Clear();
-    _attentionPoints.AddRange(attentionPoints);
+    Replace(_matchedTerms, matchedTerms);
+    Replace(_positiveReasons, positiveReasons);
+    Replace(_attentionPoints, attentionPoints);
 
     return this;
   }
 
   /// <summary>Obsoleta quando o motor evoluiu depois do ultimo calculo desta linha.</summary>
   public bool IsStale(string currentEngineVersion) => EngineVersion != currentEngineVersion;
+
+  private static void Replace(List<string> target, IEnumerable<string> values)
+  {
+    target.Clear();
+    target.AddRange(values);
+  }
 }

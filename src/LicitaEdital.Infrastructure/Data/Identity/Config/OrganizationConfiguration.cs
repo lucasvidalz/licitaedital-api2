@@ -20,8 +20,6 @@ public class OrganizationConfiguration : IEntityTypeConfiguration<Organization>
       .IsRequired();
 
     builder.Property(organization => organization.IsPlatform).IsRequired();
-    builder.Property(organization => organization.CreatedAt).IsRequired();
-    builder.Property(organization => organization.UpdatedAt).IsRequired();
 
     builder.UseXminAsConcurrencyToken();
   }

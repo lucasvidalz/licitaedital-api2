@@ -13,6 +13,8 @@
     <PackageReference Include="Ardalis.Result" />
     <PackageReference Include="Ardalis.Result.AspNetCore" />
     <PackageReference Include="FastEndpoints" />
+    <PackageReference Include="LicitaEdital.BuildingBlocks.Auth" />
+    <PackageReference Include="LicitaEdital.BuildingBlocks.Web" />
     <PackageReference Include="FastEndpoints.Swagger" />
     <PackageReference Include="Mediator.SourceGenerator">
       <PrivateAssets>all</PrivateAssets>

@@ -1,9 +1,12 @@
 ﻿global using System.Net.Mail;
 global using System.Reflection;
 global using Ardalis.GuardClauses;
-global using Ardalis.SharedKernel;
 global using Ardalis.SmartEnum;
-global using Ardalis.Specification.EntityFrameworkCore;
+global using LicitaEdital.BuildingBlocks.Domain.Entities;
+global using LicitaEdital.BuildingBlocks.Domain.Events;
+global using LicitaEdital.BuildingBlocks.Domain.Repositories;
+global using LicitaEdital.BuildingBlocks.Persistence;
+global using LicitaEdital.BuildingBlocks.Persistence.Conventions;
 global using LicitaEdital.Infrastructure.Data;
 global using LicitaEdital.Infrastructure.Data.Config;
 global using MailKit.Net.Smtp;

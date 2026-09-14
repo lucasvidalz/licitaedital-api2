@@ -36,7 +36,7 @@ public class RoleConfiguration : IEntityTypeConfiguration<Role>
       .UsePropertyAccessMode(PropertyAccessMode.Field)
       .IsRequired();
 
-    builder.HasIndex(role => role.Name).IsUnique();
+    builder.HasIndex(role => role.Name).IsUnique().ActiveOnly();
 
     builder.UseXminAsConcurrencyToken();
   }

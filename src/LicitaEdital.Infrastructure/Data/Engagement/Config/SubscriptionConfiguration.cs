@@ -20,13 +20,13 @@ public class SubscriptionConfiguration : IEntityTypeConfiguration<Subscription>
       .IsRequired();
 
     builder.Property(subscription => subscription.StartedAt).IsRequired();
-    builder.Property(subscription => subscription.UpdatedAt).IsRequired();
 
     // Uma assinatura vigente por organizacao. Historico de troca de plano nao existe ainda —
     // quando existir, e' tabela propria, nao segunda linha aqui.
     builder.HasIndex(subscription => subscription.OrganizationId)
       .IsUnique()
-      .HasDatabaseName("ux_subscriptions_organization");
+      .HasDatabaseName("ux_subscriptions_organization")
+      .ActiveOnly();
 
     builder.UseXminAsConcurrencyToken();
   }

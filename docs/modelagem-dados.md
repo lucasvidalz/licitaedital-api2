@@ -10,6 +10,9 @@ opaco, gerado no domínio).
 
 ---
 
+> Os diagramas abaixo omitem as colunas herdadas (`created_at`, `updated_at`, `is_active`, …) —
+> elas estão na seção **Colunas que toda tabela herda**, mais adiante.
+
 ## Os seis módulos
 
 | Schema | `DbContext` | Agregados | Endpoints que serve |
@@ -46,8 +49,6 @@ erDiagram
     uuid id PK
     text name
     boolean is_platform
-    timestamptz created_at
-    timestamptz updated_at
   }
   roles {
     uuid id PK
@@ -62,7 +63,6 @@ erDiagram
     uuid role_id FK
     text area
     text status
-    timestamptz joined_at
     timestamptz last_login_at
   }
 ```
@@ -97,8 +97,6 @@ erDiagram
     text city
     char2 state
     text business_area
-    timestamptz created_at
-    timestamptz updated_at
   }
 ```
 
@@ -214,8 +212,6 @@ erDiagram
     text_array served_regions
     bigint min_value_cents
     bigint max_value_cents
-    timestamptz created_at
-    timestamptz updated_at
   }
 ```
 
@@ -236,7 +232,6 @@ erDiagram
     uuid organization_id
     uuid opportunity_id "referência opaca"
     uuid saved_by
-    timestamptz saved_at
   }
   alert_preferences {
     uuid id PK
@@ -248,17 +243,17 @@ erDiagram
     text_array filter_states
     text_array filter_modalities
     text filter_value_range
-    timestamptz created_at
-    timestamptz updated_at
   }
   subscriptions {
     uuid id PK
     uuid organization_id UK "1 por organização"
     text plan_id "inicial|profissional|consultor"
     timestamptz started_at
-    timestamptz updated_at
   }
 ```
+
+`savedAt` do contrato é o `created_at` da auditoria — a entidade não tem campo próprio para a
+mesma data.
 
 **O id do recurso de salvamento na API é o da licitação**, não o desta tabela:
 `DELETE /saved-opportunities/{opportunityId}`. A unicidade `(organization_id, opportunity_id)` é o
@@ -295,7 +290,6 @@ erDiagram
     uuid id PK
     text_array attended_states
     text value_range
-    timestamptz updated_at
   }
 ```
 
@@ -325,6 +319,32 @@ Nenhuma FK atravessa schema. O que atravessa é **só o id**, sem propriedade de
 Os tipos de id que cruzam módulo (`OrganizationId`, `UserId`, `OpportunityId`, `OfferingId`) moram em
 `Core/Shared/`. Compartilhar o **tipo** dá segurança de compilação; o que criaria acoplamento de
 dados seria a FK e a navegação, e essas não existem.
+
+---
+
+## Colunas que toda tabela herda
+
+Vêm das bases de `LicitaEdital.BuildingBlocks.Domain` — **não as redeclare na entidade**:
+
+| Coluna | De onde | Em quais tabelas |
+| --- | --- | --- |
+| `id` | `Entity<TId>` — UUID v7 gerado no construtor | todas |
+| `created_at`, `created_by`, `updated_at`, `updated_by` | `AuditableEntity<TId>`, carimbadas pelo `AuditInterceptor` | todas menos `opportunity_line_items` e `opportunity_documents` |
+| `is_active`, `deleted_at`, `deleted_by` | `AggregateRoot<TId>` | só as raízes com soft delete (ver abaixo) |
+| `xmin` | token de concorrência do próprio PostgreSQL | todo agregado mutável |
+
+**Quem tem soft delete e quem não tem**, e o porquê de cada exceção:
+
+| Sem soft delete | Por quê |
+| --- | --- |
+| `saved_opportunities` | Dessalvar é alternador, não remoção de registro de negócio — e a linha inativa continuaria ocupando o índice único `(organização, licitação)`, fazendo o salvar de novo colidir com a própria exclusão |
+| `opportunity_compatibilities` | Projeção. Linha obsoleta deve sumir no recálculo; mantida como inativa, competiria pela unicidade com a linha nova |
+| `collection_runs`, `coverage_settings` | Registro de execução é histórico por definição, e a cobertura é singleton — não existe cenário em que apagar seja a operação certa |
+| `opportunity_line_items`, `opportunity_documents` | Filhos de agregado. Item que a fonte deixou de publicar não tem histórico próprio a preservar |
+
+**Todo índice único sobre tabela com soft delete é parcial** (`WHERE is_active`, via `.ActiveOnly()`).
+Sem o filtro, excluir um perfil de empresa e recadastrar com o mesmo CNPJ falha por violação de
+unicidade contra uma linha que o usuário já não enxerga — e a mensagem não explica nada.
 
 ---
 

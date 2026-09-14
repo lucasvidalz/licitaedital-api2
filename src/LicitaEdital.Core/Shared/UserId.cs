@@ -1,4 +1,5 @@
-﻿using Vogen;
+﻿using LicitaEdital.BuildingBlocks.Domain.Identifiers;
+using Vogen;
 
 namespace LicitaEdital.Core.Shared;
 
@@ -7,10 +8,8 @@ namespace LicitaEdital.Core.Shared;
 /// ASP.NET Core Identity, em Infrastructure; o dominio so conhece o id.
 /// </summary>
 [ValueObject<Guid>]
-public readonly partial struct UserId
+public readonly partial struct UserId : IGuidId<UserId>
 {
-  public static UserId New() => From(Guid.CreateVersion7());
-
   private static Validation Validate(Guid value)
       => value != Guid.Empty ? Validation.Ok : Validation.Invalid("UserId nao pode ser vazio.");
 }

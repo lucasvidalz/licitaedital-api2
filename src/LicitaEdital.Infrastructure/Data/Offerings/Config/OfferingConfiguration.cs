@@ -58,8 +58,6 @@ public class OfferingConfiguration : IEntityTypeConfiguration<Offering>
 
     builder.Property(offering => offering.MinValueCents);
     builder.Property(offering => offering.MaxValueCents);
-    builder.Property(offering => offering.CreatedAt).IsRequired();
-    builder.Property(offering => offering.UpdatedAt).IsRequired();
 
     // `GET /offerings` lista tudo da organizacao, sem paginacao.
     builder.HasIndex(offering => offering.OrganizationId)
@@ -68,7 +66,8 @@ public class OfferingConfiguration : IEntityTypeConfiguration<Offering>
     // Nome unico por organizacao: duas ofertas homonimas tornariam ilegivel a origem de um score.
     builder.HasIndex(offering => new { offering.OrganizationId, offering.Name })
       .IsUnique()
-      .HasDatabaseName("ux_offerings_organization_name");
+      .HasDatabaseName("ux_offerings_organization_name")
+      .ActiveOnly();
 
     builder.UseXminAsConcurrencyToken();
   }

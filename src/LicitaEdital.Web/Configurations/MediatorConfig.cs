@@ -1,4 +1,4 @@
-﻿using Ardalis.SharedKernel;
+﻿using LicitaEdital.BuildingBlocks.Application.Behaviors;
 using LicitaEdital.Core.Interfaces;
 using LicitaEdital.Infrastructure;
 using LicitaEdital.UseCases;
@@ -14,22 +14,24 @@ public static class MediatorConfig
     logger.LogInformation("Registering Mediator SourceGen and Behaviors");
     services.AddMediator(options =>
     {
-      // Singleton e o mais rapido segundo a doc; Scoped/Transient tambem sao suportados.
       options.ServiceLifetime = ServiceLifetime.Scoped;
 
       // Um TYPE qualquer de cada assembly a ser varrido (o gerador descobre o assembly pelo tipo).
       options.Assemblies =
       [
         typeof(IEmailSender),                    // Core
-        typeof(Constants),                      // UseCases
+        typeof(UseCasesAssembly),               // UseCases
         typeof(InfrastructureServiceExtensions), // Infrastructure
         typeof(MediatorConfig)                  // Web
       ];
 
-      // Pipeline behaviors (a ordem importa)
+      // Behaviors vem da lib. **A ordem importa**: validar antes de logar o fim da operacao, e
+      // ambos antes do handler. Behavior registrado por DI em vez de aqui fica silenciosamente
+      // fora do pipeline gerado pelo source generator.
       options.PipelineBehaviors =
       [
-        typeof(LoggingBehavior<,>)
+        typeof(LoggingBehavior<,>),
+        typeof(ValidationBehavior<,>)
       ];
     });
 

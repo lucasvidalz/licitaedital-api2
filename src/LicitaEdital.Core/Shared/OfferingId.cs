@@ -1,4 +1,5 @@
-﻿using Vogen;
+﻿using LicitaEdital.BuildingBlocks.Domain.Identifiers;
+using Vogen;
 
 namespace LicitaEdital.Core.Shared;
 
@@ -8,10 +9,8 @@ namespace LicitaEdital.Core.Shared;
 /// registra qual oferta gerou o score.
 /// </summary>
 [ValueObject<Guid>]
-public readonly partial struct OfferingId
+public readonly partial struct OfferingId : IGuidId<OfferingId>
 {
-  public static OfferingId New() => From(Guid.CreateVersion7());
-
   private static Validation Validate(Guid value)
       => value != Guid.Empty ? Validation.Ok : Validation.Invalid("OfferingId nao pode ser vazio.");
 }

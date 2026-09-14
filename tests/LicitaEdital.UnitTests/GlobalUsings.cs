@@ -1,5 +1,6 @@
 ﻿global using System.Runtime.CompilerServices;
-global using Ardalis.SharedKernel;
+global using LicitaEdital.BuildingBlocks.Domain.Entities;
+global using LicitaEdital.BuildingBlocks.Domain.Events;
 global using Shouldly;
 global using Mediator;
 global using Microsoft.Extensions.Logging;

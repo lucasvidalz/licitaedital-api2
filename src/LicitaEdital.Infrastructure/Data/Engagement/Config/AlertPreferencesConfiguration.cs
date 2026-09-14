@@ -56,12 +56,10 @@ public class AlertPreferencesConfiguration : IEntityTypeConfiguration<AlertPrefe
 
     builder.Ignore(preferences => preferences.Filter);
 
-    builder.Property(preferences => preferences.CreatedAt).IsRequired();
-    builder.Property(preferences => preferences.UpdatedAt).IsRequired();
-
     builder.HasIndex(preferences => preferences.OrganizationId)
       .IsUnique()
-      .HasDatabaseName("ux_alert_preferences_organization");
+      .HasDatabaseName("ux_alert_preferences_organization")
+      .ActiveOnly();
 
     builder.UseXminAsConcurrencyToken();
   }

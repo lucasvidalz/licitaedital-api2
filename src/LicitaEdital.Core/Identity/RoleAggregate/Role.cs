@@ -6,11 +6,11 @@ namespace LicitaEdital.Core.Identity.RoleAggregate;
 /// Agrupa permissoes. E' de plataforma, nao por organizacao: os papeis sao os mesmos para todo
 /// cliente, e permitir papel proprio por tenant abriria escalada de privilegio sem ganho de produto.
 ///
-/// <see cref="Area"/> existe para impedir a combinacao errada — um papel de gerenciamento nunca
-/// pode ser atribuido a um vinculo `client`, que e' o que a spec §16 exige ao dizer que gerenciador
-/// nao ganha acesso a cofre, proposta nem poder de aprovacao de cliente.
+/// <see cref="Area"/> existe para impedir a combinacao errada — papel de gerenciamento nunca pode
+/// ser atribuido a vinculo `client`, que e' o que a spec §16 exige ao dizer que gerenciador nao
+/// ganha acesso a cofre, proposta nem poder de aprovacao de cliente.
 /// </summary>
-public class Role : EntityBase<Role, RoleId>, IAggregateRoot
+public class Role : AggregateRoot<RoleId>
 {
   private readonly List<PermissionCode> _permissions = [];
 
@@ -27,7 +27,7 @@ public class Role : EntityBase<Role, RoleId>, IAggregateRoot
 
   public static Role Create(RoleName name, UserArea area, IEnumerable<PermissionCode> permissions)
   {
-    var role = new Role(name, area) { Id = RoleId.New() };
+    var role = new Role(name, area);
     foreach (var permission in permissions)
     {
       role.Grant(permission);

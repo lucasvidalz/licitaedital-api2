@@ -1,4 +1,5 @@
-﻿using LicitaEdital.Core.Shared;
+﻿using LicitaEdital.BuildingBlocks.Domain.Entities;
+using LicitaEdital.Core.Shared;
 
 namespace LicitaEdital.Core.Engagement.SavedOpportunityAggregate;
 
@@ -6,18 +7,21 @@ namespace LicitaEdital.Core.Engagement.SavedOpportunityAggregate;
 /// Marcacao de interesse da organizacao numa licitacao. Unica por (organizacao, licitacao) — salvar
 /// duas vezes e' idempotente, nao gera segunda linha.
 ///
-/// **O id do recurso na API e' o da licitacao, nao o desta entidade**:
-/// `DELETE /saved-opportunities/{opportunityId}` (`saved-opportunities-api.service.ts:31`). O
-/// <see cref="SavedOpportunityId"/> e' interno.
+/// **Herda de <c>AuditableEntity</c>, nao de <c>AggregateRoot</c>, e isso e' deliberado: aqui a
+/// exclusao e' fisica.** Dessalvar e' um alternador, nao a remocao de um registro de negocio; e com
+/// soft delete a linha inativa continuaria ocupando o indice unico
+/// (organizacao, licitacao), de modo que salvar de novo colidiria com a propria exclusao.
 ///
-/// O que a API devolve embute a `OpportunityApiItem` inteira, montada pelo query service — esta
-/// entidade guarda so a referencia opaca, sem navegacao para Catalog.
+/// **O id do recurso na API e' o da licitacao, nao o desta entidade**:
+/// `DELETE /saved-opportunities/{opportunityId}` (`saved-opportunities-api.service.ts:31`).
+///
+/// `savedAt` do contrato e' o <c>CreatedAt</c> da auditoria — nao ha campo proprio para a mesma
+/// data.
 ///
 /// Etapa, responsavel e prioridade do quadro de acompanhamento **nao entram aqui**: sao organizacao
-/// local da equipe, guardadas no navegador (AD-042 do frontend). Trazer para o servidor agora seria
-/// inventar recurso que o contrato nao tem.
+/// local da equipe, guardadas no navegador (AD-042).
 /// </summary>
-public class SavedOpportunity : EntityBase<SavedOpportunity, SavedOpportunityId>, IAggregateRoot
+public class SavedOpportunity : AuditableEntity<SavedOpportunityId>, IAggregateRoot, ITenantScoped
 {
   private SavedOpportunity(OrganizationId organizationId, OpportunityId opportunityId, UserId savedBy)
   {
@@ -32,13 +36,9 @@ public class SavedOpportunity : EntityBase<SavedOpportunity, SavedOpportunityId>
   /// <summary>Quem salvou. Nao aparece no contrato hoje; existe para trilha de auditoria.</summary>
   public UserId SavedBy { get; private set; }
 
-  public DateTimeOffset SavedAt { get; private set; }
+  Guid ITenantScoped.TenantId => OrganizationId.Value;
 
   public static SavedOpportunity Create(OrganizationId organizationId, OpportunityId opportunityId,
-    UserId savedBy, TimeProvider clock)
-    => new(organizationId, opportunityId, savedBy)
-    {
-      Id = SavedOpportunityId.New(),
-      SavedAt = clock.GetUtcNow()
-    };
+    UserId savedBy)
+    => new(organizationId, opportunityId, savedBy);
 }

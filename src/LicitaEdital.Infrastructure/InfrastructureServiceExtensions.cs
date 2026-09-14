@@ -32,9 +32,8 @@ public static class InfrastructureServiceExtensions
     var connectionString = config.GetConnectionString(ConnectionStringName);
     Guard.Against.NullOrWhiteSpace(connectionString, nameof(connectionString));
 
-    services.AddScoped<EventDispatchInterceptor>();
-    services.AddScoped<IDomainEventDispatcher, MediatorDomainEventDispatcher>();
-    services.TryAddSingleton(TimeProvider.System);
+    // Auditoria, soft delete, guarda de tenant e despacho de eventos vem da lib.
+    services.AddBuildingBlocksPersistence();
 
     // Seis contextos, uma base, um schema cada (D-01). Cada um leva sua **propria** tabela de
     // historico de migracao, no seu schema: com a tabela default compartilhada, aplicar a migracao
@@ -47,7 +46,7 @@ public static class InfrastructureServiceExtensions
     services.AddModuleDbContext<CollectionsDbContext>(connectionString, DataSchemaConstants.CollectionsSchema);
 
     // Cada agregado e' registrado **fechado**, apontando para o contexto do seu modulo. Nao da para
-    // registrar `IRepository<>` aberto como no template de um contexto so: o DI nao teria como
+    // registrar `IRepository<>` aberto como num template de contexto unico: o DI nao teria como
     // escolher entre os seis, e a escolha errada leria a tabela de outro schema.
     services
       .AddAggregate<IdentityDbContext, Organization>()
@@ -75,7 +74,7 @@ public static class InfrastructureServiceExtensions
       options.UseNpgsql(connectionString, npgsql =>
         npgsql.MigrationsHistoryTable(DataSchemaConstants.MigrationsHistoryTable, schema));
 
-      options.AddInterceptors(provider.GetRequiredService<EventDispatchInterceptor>());
+      options.AddBuildingBlocksInterceptors(provider);
     });
 
   private static IServiceCollection AddAggregate<TContext, TAggregate>(this IServiceCollection services)

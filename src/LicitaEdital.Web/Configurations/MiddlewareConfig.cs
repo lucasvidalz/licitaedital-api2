@@ -24,6 +24,13 @@ public static class MiddlewareConfig
       app.UseHsts();
     }
 
+    app.UseCorrelationId();
+
+    // Ordem obrigatoria do ASP.NET Core: autenticacao resolve quem e', autorizacao decide o que
+    // pode, e so depois o endpoint roda. Inverter faz todo `[Authorize]` passar batido.
+    app.UseAuthentication();
+    app.UseAuthorization();
+
     app.UseFastEndpoints();
 
     if (app.Environment.IsDevelopment())

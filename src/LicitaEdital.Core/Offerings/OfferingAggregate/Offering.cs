@@ -1,4 +1,5 @@
-﻿using LicitaEdital.Core.Offerings.OfferingAggregate.Events;
+﻿using LicitaEdital.BuildingBlocks.Domain.Entities;
+using LicitaEdital.Core.Offerings.OfferingAggregate.Events;
 using LicitaEdital.Core.Shared;
 
 namespace LicitaEdital.Core.Offerings.OfferingAggregate;
@@ -8,9 +9,11 @@ namespace LicitaEdital.Core.Offerings.OfferingAggregate;
 /// e a faixa de valor sao o que casa uma licitacao com o cliente.
 ///
 /// Toda alteracao dispara <see cref="OfferingChangedEvent"/>, porque qualquer score ja calculado
-/// para esta organizacao passou a estar errado.
+/// para esta organizacao passou a estar errado. Excluir tambem: a exclusao e' logica (herdada de
+/// <c>AggregateRoot</c>), e a oferta inativa ainda explica por que uma oportunidade recebeu aquele
+/// score no passado.
 /// </summary>
-public class Offering : EntityBase<Offering, OfferingId>, IAggregateRoot
+public class Offering : AggregateRoot<OfferingId>, ITenantScoped
 {
   private readonly List<string> _positiveKeywords = [];
   private readonly List<string> _negativeKeywords = [];
@@ -52,20 +55,11 @@ public class Offering : EntityBase<Offering, OfferingId>, IAggregateRoot
   /// <summary>Teto de valor em centavos. Nulo = sem teto.</summary>
   public long? MaxValueCents { get; private set; }
 
-  public DateTimeOffset CreatedAt { get; private set; }
-  public DateTimeOffset UpdatedAt { get; private set; }
+  Guid ITenantScoped.TenantId => OrganizationId.Value;
 
   public static Offering Create(OrganizationId organizationId, OfferingName name,
-    string description, SupplyType supplyType, TimeProvider clock)
-  {
-    var now = clock.GetUtcNow();
-    return new Offering(organizationId, name, description, supplyType)
-    {
-      Id = OfferingId.New(),
-      CreatedAt = now,
-      UpdatedAt = now
-    };
-  }
+    string description, SupplyType supplyType)
+    => new(organizationId, name, description, supplyType);
 
   public Offering SetTerms(IEnumerable<string> positiveKeywords, IEnumerable<string> negativeKeywords,
     IEnumerable<string> synonyms, IEnumerable<string> catalogCodes)
@@ -74,6 +68,7 @@ public class Offering : EntityBase<Offering, OfferingId>, IAggregateRoot
     Replace(_negativeKeywords, negativeKeywords);
     Replace(_synonyms, synonyms);
     Replace(_catalogCodes, catalogCodes);
+    RegisterDomainEvent(new OfferingChangedEvent(Id, OrganizationId));
     return this;
   }
 
@@ -81,20 +76,19 @@ public class Offering : EntityBase<Offering, OfferingId>, IAggregateRoot
     long? maxValueCents)
   {
     _servedRegions.Clear();
-    _servedRegions.AddRange(servedRegions);
+    _servedRegions.AddRange(servedRegions.Distinct());
     MinValueCents = minValueCents;
     MaxValueCents = maxValueCents;
+    RegisterDomainEvent(new OfferingChangedEvent(Id, OrganizationId));
     return this;
   }
 
   /// <summary>`PUT /offerings/{id}` substitui a oferta inteira — o request nao tem campo parcial.</summary>
-  public Offering Update(OfferingName name, string description, SupplyType supplyType,
-    TimeProvider clock)
+  public Offering Update(OfferingName name, string description, SupplyType supplyType)
   {
     Name = name;
     Description = description;
     SupplyType = supplyType;
-    UpdatedAt = clock.GetUtcNow();
     RegisterDomainEvent(new OfferingChangedEvent(Id, OrganizationId));
     return this;
   }
@@ -102,6 +96,9 @@ public class Offering : EntityBase<Offering, OfferingId>, IAggregateRoot
   private static void Replace(List<string> target, IEnumerable<string> values)
   {
     target.Clear();
-    target.AddRange(values.Select(v => v.Trim()).Where(v => v.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase));
+    target.AddRange(values
+      .Select(value => value.Trim())
+      .Where(value => value.Length > 0)
+      .Distinct(StringComparer.OrdinalIgnoreCase));
   }
 }
