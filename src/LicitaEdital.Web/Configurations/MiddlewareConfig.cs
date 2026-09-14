@@ -1,5 +1,10 @@
 ﻿using Ardalis.ListStartupServices;
-using LicitaEdital.Infrastructure.Data;
+using LicitaEdital.Infrastructure.Data.Catalog;
+using LicitaEdital.Infrastructure.Data.Collections;
+using LicitaEdital.Infrastructure.Data.Companies;
+using LicitaEdital.Infrastructure.Data.Engagement;
+using LicitaEdital.Infrastructure.Data.Identity;
+using LicitaEdital.Infrastructure.Data.Offerings;
 using Scalar.AspNetCore;
 
 namespace LicitaEdital.Web.Configurations;
@@ -14,7 +19,7 @@ public static class MiddlewareConfig
       app.UseShowAllServicesMiddleware(); // see https://github.com/ardalis/AspNetCoreStartupServices
     }
     else
-    {   
+    {
       app.UseDefaultExceptionHandler(); // from FastEndpoints
       app.UseHsts();
     }
@@ -32,7 +37,7 @@ public static class MiddlewareConfig
         settings.Path = "/swagger";
         settings.DocumentPath = "/openapi/{documentName}.json";
       });
-  
+
       app.MapScalarApiReference(options =>
       {
         options.WithTitle("LicitaEdital API");
@@ -42,7 +47,6 @@ public static class MiddlewareConfig
 
     app.UseHttpsRedirection(); // Note this will drop Authorization headers
 
-    // Migra em Development ou quando pedido explicitamente por configuracao
     var shouldMigrate = app.Environment.IsDevelopment() ||
                         app.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup");
 
@@ -54,7 +58,16 @@ public static class MiddlewareConfig
     return app;
   }
 
-  static async Task MigrateDatabaseAsync(WebApplication app)
+  /// <summary>
+  /// Migra os seis contextos de modulo, em ordem fixa. Cada um tem sua propria tabela de historico
+  /// no seu schema (D-01), entao as migracoes sao independentes — o que falha aqui e' o modulo, nao
+  /// a base inteira.
+  ///
+  /// Nao ha caminho `EnsureCreated`: com PostgreSQL em todo ambiente, inclusive local via Aspire,
+  /// criar o schema por atalho em desenvolvimento produziria uma base que **nao** corresponde as
+  /// migracoes aplicadas em producao — o erro aparece so no deploy.
+  /// </summary>
+  private static async Task MigrateDatabaseAsync(WebApplication app)
   {
     using var scope = app.Services.CreateScope();
     var services = scope.ServiceProvider;
@@ -63,20 +76,15 @@ public static class MiddlewareConfig
     try
     {
       logger.LogInformation("Applying database migrations...");
-      var context = services.GetRequiredService<AppDbContext>();
-      
-      // For SQLite, use EnsureCreated instead of migrations (common for dev/local scenarios)
-      // For SQL Server, use migrations (production scenario)
-      if (context.Database.IsSqlite())
-      {
-        await context.Database.EnsureCreatedAsync();
-        logger.LogInformation("SQLite database created successfully");
-      }
-      else
-      {
-        await context.Database.MigrateAsync();
-        logger.LogInformation("Database migrations applied successfully");
-      }
+
+      await services.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
+      await services.GetRequiredService<CompaniesDbContext>().Database.MigrateAsync();
+      await services.GetRequiredService<CatalogDbContext>().Database.MigrateAsync();
+      await services.GetRequiredService<OfferingsDbContext>().Database.MigrateAsync();
+      await services.GetRequiredService<EngagementDbContext>().Database.MigrateAsync();
+      await services.GetRequiredService<CollectionsDbContext>().Database.MigrateAsync();
+
+      logger.LogInformation("Database migrations applied successfully");
     }
     catch (Exception ex)
     {

@@ -40,7 +40,7 @@ src/
   LicitaEdital.UseCases/        CQRS: commands, queries, handlers, DTOs. Referencia só o Core.
   LicitaEdital.Infrastructure/  EF Core, repositórios, query services, e-mail, serviços externos.
   LicitaEdital.Web/             FastEndpoints (REPR), validação de request, composição de DI.
-  LicitaEdital.AspireHost/      orquestração local: SQL Server + Papercut (SMTP de teste).
+  LicitaEdital.AspireHost/      orquestração local: PostgreSQL + Papercut (SMTP de teste).
   LicitaEdital.ServiceDefaults/ OpenTelemetry, health checks, service discovery, resiliência.
 tests/
   LicitaEdital.UnitTests/         domínio e handlers, sem I/O
@@ -75,8 +75,10 @@ Governadas por `.editorconfig` — ele é a fonte, o que segue é o resumo do qu
 
 ### Core — domínio
 
-Um diretório por agregado: `src/LicitaEdital.Core/<Nome>Aggregate/`, com `Events/`, `Handlers/` e
-`Specifications/` dentro dele quando houver.
+Um diretório por **módulo**, e dentro dele um por agregado:
+`src/LicitaEdital.Core/<Modulo>/<Nome>Aggregate/`, com `Events/`, `Handlers/` e `Specifications/`
+dentro quando houver. Os módulos são `Identity`, `Companies`, `Catalog`, `Offerings`, `Engagement`,
+`Collections` — e `Shared`, só para os ids que atravessam módulo.
 
 **Entidade / raiz de agregado** — herda de `EntityBase<TEntity, TId>` do `Ardalis.SharedKernel` e
 marca a raiz com `IAggregateRoot`. Setter é privado; mudança de estado passa por método que carrega
@@ -101,13 +103,18 @@ public class Company(CompanyName name) : EntityBase<Company, CompanyId>, IAggreg
 (`[assembly: VogenDefaults]`) mora em `Core/VogenConfiguration.cs`; não a duplique.
 
 ```csharp
-[ValueObject<int>]
+[ValueObject<Guid>]
 public readonly partial struct CompanyId
 {
-  private static Validation Validate(int value)
-      => value > 0 ? Validation.Ok : Validation.Invalid("CompanyId must be positive.");
+  public static CompanyId New() => From(Guid.CreateVersion7());
+
+  private static Validation Validate(Guid value)
+      => value != Guid.Empty ? Validation.Ok : Validation.Invalid("CompanyId nao pode ser vazio.");
 }
 ```
+
+Id é `Guid` v7 **gerado na factory do agregado** (D-04), nunca pelo banco: ordenável por tempo, não
+vaza volume, e o mapeamento usa `ValueGeneratedNever()`.
 
 **Enum de domínio** — `Ardalis.SmartEnum`, não `enum` nativo, quando o valor tem comportamento ou
 precisa persistir estável.
@@ -157,16 +164,23 @@ public class CreateCompanyHandler(IRepository<Company> repository)
 
 ### Infrastructure — dados e integrações
 
-- `AppDbContext`: um `DbSet` por raiz de agregado, e nada mais. As configurações são descobertas por
-  `ApplyConfigurationsFromAssembly`.
-- Mapeamento em `Data/Config/<Entidade>Configuration.cs` (`IEntityTypeConfiguration<T>`) — **nunca**
-  por atributo na entidade, que sujaria o `Core`.
+Banco é **PostgreSQL**, com **um `DbContext` e um schema por módulo** (D-01). O mapa completo está
+em [`docs/modelagem-dados.md`](docs/modelagem-dados.md).
+
+- `Data/<Modulo>/<Modulo>DbContext.cs`: um `DbSet` por raiz de agregado do módulo, `HasDefaultSchema`
+  do seu schema, e `ApplyConfigurationsFromAssembly` **filtrado pelo namespace do próprio módulo** —
+  sem o filtro, um contexto aplicaria a configuração dos outros cinco.
+- Mapeamento em `Data/<Modulo>/Config/<Entidade>Configuration.cs` (`IEntityTypeConfiguration<T>`) —
+  **nunca** por atributo na entidade, que sujaria o `Core`.
 - Todo value object mapeado precisa do conversor declarado em `Data/Config/VogenEfCoreConverters.cs`
-  (`[EfCoreConverter<T>]`) e de `.HasVogenConversion()` na propriedade.
-- Repositório genérico já existe (`EfRepository<T>`, sobre `Ardalis.Specification`). Repositório
-  específico só quando uma specification não resolve.
-- Registro de DI em `InfrastructureServiceExtensions.AddInfrastructureServices`. A ordem de
-  connection string é `licitaedital` (Aspire) → `DefaultConnection` (SQL Server) → `SqliteConnection`.
+  (`[EfCoreConverter<T>]`) e de `.HasVogenConversion()` na propriedade. **Sem a entrada lá, a coluna
+  simplesmente não é gerada — e não há erro de compilação.**
+- **Nada de FK entre schemas.** Referência a outro módulo é o id puro, sem propriedade de navegação.
+- Repositório genérico é `EfRepository<TContext, T>`, e cada agregado é registrado **fechado** em
+  `InfrastructureServiceExtensions.AddAggregate<TContext, TAggregate>()`. Agregado novo sem esse
+  registro falha em runtime, não na compilação.
+- Todo agregado mutável leva `UseXminAsConcurrencyToken()`; toda coluna nasce `snake_case` por
+  `UseSnakeCaseNames()`, chamado no fim de cada `OnModelCreating`.
 - Nunca vaze tipo de EF Core (`DbContext`, `IQueryable` de entidade) para `UseCases` ou `Web`.
 
 ### Web — API
@@ -229,8 +243,8 @@ Três níveis, com responsabilidades distintas — não duplique, não pule:
 | Projeto | Cobre | Regra |
 | --- | --- | --- |
 | `UnitTests` | entidade, value object, specification, handler | sem I/O, sem banco. Dublê com `NSubstitute`, `NoOpMediator` para `IMediator` |
-| `IntegrationTests` | `EfRepository`, mapeamento, interceptor | `BaseEfRepoTestFixture` dá `AppDbContext` InMemory pronto |
-| `FunctionalTests` | endpoint HTTP | `CustomWebApplicationFactory` (SQL Server via Testcontainers, com fallback SQLite sem Docker) |
+| `IntegrationTests` | repositório e interceptor | `BaseEfRepoTestFixture<TContext>` dá um contexto de módulo InMemory. **Não serve para mapeamento, constraint nem concorrência** — InMemory não tem `text[]`, `xmin`, schema nem índice único |
+| `FunctionalTests` | endpoint HTTP, mapeamento, constraint | `CustomWebApplicationFactory` sobe PostgreSQL via Testcontainers e roda as migrations. **Sem fallback**: sem Docker, o teste falha — é o ponto |
 
 xUnit v3 + `Shouldly`. Nome do arquivo e da classe seguem `<Sujeito>_<Comportamento>` /
 `<Classe><Metodo>` — o que existe no repositório hoje é `DockerAvailabilityTests`; siga o mesmo
@@ -245,18 +259,20 @@ tom descritivo.
 dotnet build LicitaEdital.slnx
 dotnet test  LicitaEdital.slnx --settings .runsettings
 
-# rodar só a API (SQLite local, sem Docker)
+# rodar só a API (exige um PostgreSQL alcançável pela connection string)
 dotnet run --project src/LicitaEdital.Web
 
-# rodar tudo com Aspire (SQL Server + Papercut em container)
+# rodar tudo com Aspire (PostgreSQL + Papercut em container)
 dotnet run --project src/LicitaEdital.AspireHost
 
-# migração — a partir de src/LicitaEdital.Web/
-dotnet ef migrations add <Nome> -c AppDbContext \
+# migração — a partir de src/LicitaEdital.Web/, UMA POR CONTEXTO.
+# Contextos: IdentityDbContext, CompaniesDbContext, CatalogDbContext,
+#            OfferingsDbContext, EngagementDbContext, CollectionsDbContext
+dotnet ef migrations add <Nome> -c CatalogDbContext \
   -p ../LicitaEdital.Infrastructure/LicitaEdital.Infrastructure.csproj \
-  -s LicitaEdital.Web.csproj -o Data/Migrations
+  -s LicitaEdital.Web.csproj -o Data/Catalog/Migrations
 
-dotnet ef database update -c AppDbContext \
+dotnet ef database update -c CatalogDbContext \
   -p ../LicitaEdital.Infrastructure/LicitaEdital.Infrastructure.csproj \
   -s LicitaEdital.Web.csproj
 ```
@@ -287,9 +303,12 @@ O caminho do esqueleto vazio até a API que sustenta o frontend está em
 ainda sem contrato, 7 decisões a fechar antes da primeira linha (`D-01`..`D-07`) e 10 fases com
 critério de pronto. **Leia antes de começar qualquer feature.**
 
-O banco é **PostgreSQL** — o template vinha com SQL Server + SQLite, e a troca é a primeira tarefa
-da Fase 0 do plano. Enquanto ela não rodar, o que está escrito nos `appsettings` e em
-`InfrastructureServiceExtensions` ainda é o do template.
+O banco é **PostgreSQL**; a troca do template (SQL Server + SQLite) já foi feita.
+
+A modelagem das Fases 1 a 6 está em [`docs/modelagem-dados.md`](docs/modelagem-dados.md): os seis
+módulos, um `DbContext` e um schema cada, com o diagrama de cada um, as referências entre módulos e
+as convenções de mapeamento. **Não há migration ainda** — as entidades e os mapeamentos existem, o
+`dotnet ef migrations add` é o passo seguinte.
 
 ## Estado do repositório
 

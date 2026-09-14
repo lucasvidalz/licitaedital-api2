@@ -1,7 +1,54 @@
-﻿using Vogen;
+﻿using LicitaEdital.Core.Catalog.CompatibilityAggregate;
+using LicitaEdital.Core.Catalog.OpportunityAggregate;
+using LicitaEdital.Core.Collections.CollectionRunAggregate;
+using LicitaEdital.Core.Collections.CoverageSettingsAggregate;
+using LicitaEdital.Core.Companies.CompanyProfileAggregate;
+using LicitaEdital.Core.Engagement.AlertPreferencesAggregate;
+using LicitaEdital.Core.Engagement.SavedOpportunityAggregate;
+using LicitaEdital.Core.Engagement.SubscriptionAggregate;
+using LicitaEdital.Core.Identity.MembershipAggregate;
+using LicitaEdital.Core.Identity.OrganizationAggregate;
+using LicitaEdital.Core.Identity.RoleAggregate;
+using LicitaEdital.Core.Offerings.OfferingAggregate;
+using LicitaEdital.Core.Shared;
+using Vogen;
 
 namespace LicitaEdital.Infrastructure.Data.Config;
 
-// Todo value object do Core usado como propriedade mapeada declara seu conversor aqui,
-// com [EfCoreConverter<TValueObject>]. Sem isso o EF Core nao sabe traduzir o tipo.
+/// <summary>
+/// Um <c>[EfCoreConverter]</c> por value object usado como propriedade mapeada. Sem a entrada aqui,
+/// o EF Core nao sabe traduzir o tipo e a propriedade some do modelo em silencio — nao da erro de
+/// compilacao, da tabela sem coluna.
+///
+/// Fica num arquivo so, e nao um por modulo, porque o Vogen gera uma classe parcial por assembly.
+/// </summary>
+// --- identidades compartilhadas ---
+[EfCoreConverter<OrganizationId>]
+[EfCoreConverter<UserId>]
+[EfCoreConverter<OpportunityId>]
+[EfCoreConverter<OfferingId>]
+[EfCoreConverter<StateCode>]
+// --- Identity ---
+[EfCoreConverter<OrganizationName>]
+[EfCoreConverter<MembershipId>]
+[EfCoreConverter<RoleId>]
+[EfCoreConverter<RoleName>]
+// --- Companies ---
+[EfCoreConverter<CompanyProfileId>]
+[EfCoreConverter<CompanyName>]
+[EfCoreConverter<Cnpj>]
+// --- Catalog ---
+[EfCoreConverter<OpportunityLineItemId>]
+[EfCoreConverter<OpportunityDocumentId>]
+[EfCoreConverter<OpportunityCompatibilityId>]
+[EfCoreConverter<CompatibilityScore>]
+// --- Offerings ---
+[EfCoreConverter<OfferingName>]
+// --- Engagement ---
+[EfCoreConverter<SavedOpportunityId>]
+[EfCoreConverter<AlertPreferencesId>]
+[EfCoreConverter<SubscriptionId>]
+// --- Collections ---
+[EfCoreConverter<CollectionRunId>]
+[EfCoreConverter<CoverageSettingsId>]
 internal partial class VogenEfCoreConverters;

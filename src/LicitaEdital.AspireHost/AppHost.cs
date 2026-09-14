@@ -2,12 +2,12 @@
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Add SQL Server container
-var sqlServer = builder.AddSqlServer("sqlserver")
+// Container do PostgreSQL. Persistente para nao perder a base a cada `dotnet run`.
+var postgres = builder.AddPostgres("postgres")
   .WithLifetime(ContainerLifetime.Persistent);
 
-// Add the database
-var licitaEditalDb = sqlServer.AddDatabase("licitaedital");
+// Uma base, seis schemas — um por modulo (D-01).
+var licitaEditalDb = postgres.AddDatabase("licitaedital");
 
 // Papercut SMTP container for email testing
 var papercut = builder.AddContainer("papercut", "jijiechen/papercut", "latest")

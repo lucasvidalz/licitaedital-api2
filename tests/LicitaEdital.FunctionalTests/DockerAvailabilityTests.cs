@@ -18,9 +18,10 @@ public class DockerAvailabilityTests
     catch (Exception)
     {
       Assert.Fail(
-        "Docker is not running or is misconfigured. " +
-        "Functional tests that use SQL Server will fall back to SQLite, which may not catch SQL Server-specific issues. " +
-        "For full test coverage, please start Docker Desktop (https://www.docker.com/products/docker-desktop/) and re-run the tests.");
+        "Docker nao esta rodando ou esta mal configurado. " +
+        "Os testes funcionais sobem PostgreSQL em container e **nao** tem fallback: sem Docker eles falham, " +
+        "porque um banco em memoria nao exercita text[], xmin, schema por modulo nem indice unico. " +
+        "Inicie o Docker (https://www.docker.com/products/docker-desktop/) e rode os testes de novo.");
     }
   }
 }

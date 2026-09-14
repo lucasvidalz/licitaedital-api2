@@ -2,20 +2,27 @@
 
 namespace LicitaEdital.IntegrationTests.Data;
 
-public abstract class BaseEfRepoTestFixture
+/// <summary>
+/// Contexto de modulo apontando para um banco InMemory novo a cada fixture.
+///
+/// **Limite conhecido, e ele importa:** o provedor InMemory nao tem `text[]`, `xmin`, schema nem
+/// indice unico. Vale para testar comportamento de agregado e de repositorio; **nao** vale para
+/// mapeamento, constraint ou concorrencia — esses vao para os testes funcionais, que usam
+/// PostgreSQL em container.
+/// </summary>
+public abstract class BaseEfRepoTestFixture<TContext> where TContext : DbContext
 {
-  protected AppDbContext _dbContext;
+  protected readonly TContext _dbContext;
 
   protected BaseEfRepoTestFixture()
   {
-    var options = CreateNewContextOptions();
-    _dbContext = new AppDbContext(options);
+    _dbContext = CreateContext();
   }
 
-  protected static DbContextOptions<AppDbContext> CreateNewContextOptions()
+  protected static TContext CreateContext()
   {
     var fakeEventDispatcher = Substitute.For<IDomainEventDispatcher>();
-    // Um service provider novo a cada fixture, e portanto um banco InMemory novo.
+
     var serviceProvider = new ServiceCollection()
         .AddEntityFrameworkInMemoryDatabase()
         .AddScoped<IDomainEventDispatcher>(_ => fakeEventDispatcher)
@@ -24,13 +31,14 @@ public abstract class BaseEfRepoTestFixture
 
     var interceptor = serviceProvider.GetRequiredService<EventDispatchInterceptor>();
 
-    var builder = new DbContextOptionsBuilder<AppDbContext>();
-    builder.UseInMemoryDatabase("licitaedital")
+    var builder = new DbContextOptionsBuilder<TContext>();
+    builder.UseInMemoryDatabase($"licitaedital-{Guid.CreateVersion7()}")
            .UseInternalServiceProvider(serviceProvider)
            .AddInterceptors(interceptor);
 
-    return builder.Options;
+    return (TContext)Activator.CreateInstance(typeof(TContext), builder.Options)!;
   }
 
-  // Cada teste de repositorio expoe o seu: protected EfRepository<Company> GetRepository() => new(_dbContext);
+  protected EfRepository<TContext, T> GetRepository<T>() where T : class, IAggregateRoot
+      => new(_dbContext);
 }

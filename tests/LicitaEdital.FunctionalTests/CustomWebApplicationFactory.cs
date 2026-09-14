@@ -1,125 +1,71 @@
-﻿using LicitaEdital.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Testcontainers.MsSql;
+﻿using LicitaEdital.Infrastructure;
+using LicitaEdital.Infrastructure.Data.Catalog;
+using LicitaEdital.Infrastructure.Data.Collections;
+using LicitaEdital.Infrastructure.Data.Companies;
+using LicitaEdital.Infrastructure.Data.Engagement;
+using LicitaEdital.Infrastructure.Data.Identity;
+using LicitaEdital.Infrastructure.Data.Offerings;
+using Testcontainers.PostgreSql;
 
 namespace LicitaEdital.FunctionalTests;
 
-public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProgram>, IAsyncLifetime where TProgram : class
+/// <summary>
+/// Sobe a API contra um PostgreSQL real em container.
+///
+/// **Nao ha fallback para banco em memoria.** O template tinha um, para SQLite, e ele escondia
+/// exatamente o que este projeto precisa verificar: `text[]`, `xmin` como token de concorrencia,
+/// schema por modulo e indice unico composto nao existem em provedor InMemory — um teste que passa
+/// sem Docker nao prova nada sobre a base que vai para producao. Sem Docker, o teste falha.
+/// </summary>
+public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProgram>, IAsyncLifetime
+  where TProgram : class
 {
-  private MsSqlContainer? _dbContainer;
+  private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder()
+    .WithImage("postgres:17-alpine")
+    .WithDatabase("licitaedital_test")
+    .Build();
 
-  public async ValueTask InitializeAsync()
-  {
-    try
-    {
-      _dbContainer = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2025-latest")
-        .WithPassword("Your_password123!")
-        .Build();
-      await _dbContainer.StartAsync();
-    }
-    catch (ArgumentException)
-    {
-      // Docker is not available; fall back to SQLite (configured via appsettings.Testing.json)
-      _dbContainer = null;
-    }
-  }
+  public async ValueTask InitializeAsync() => await _dbContainer.StartAsync();
 
-  public new async ValueTask DisposeAsync()
-  {
-    // Clean up environment variable
-    Environment.SetEnvironmentVariable("USE_SQL_SERVER", null);
-    if (_dbContainer != null)
-    {
-      await _dbContainer.DisposeAsync();
-    }
-  }
+  public new async ValueTask DisposeAsync() => await _dbContainer.DisposeAsync();
 
-  /// <summary>
-  /// Overriding CreateHost to avoid creating a separate ServiceProvider per this thread:
-  /// https://github.com/dotnet-architecture/eShopOnWeb/issues/465
-  /// </summary>
-  /// <param name="builder"></param>
-  /// <returns></returns>
   protected override IHost CreateHost(IHostBuilder builder)
   {
-    builder.UseEnvironment("Testing"); // will not send real emails
+    builder.UseEnvironment("Testing"); // nao envia e-mail de verdade
     var host = builder.Build();
     host.Start();
 
-    // Get service provider.
-    var serviceProvider = host.Services;
+    using var scope = host.Services.CreateScope();
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<CustomWebApplicationFactory<TProgram>>>();
 
-    // Create a scope to obtain a reference to the database
-    // context (AppDbContext).
-    using (var scope = serviceProvider.CreateScope())
+    try
     {
-      var scopedServices = scope.ServiceProvider;
-      var db = scopedServices.GetRequiredService<AppDbContext>();
+      // Migracao, e nao EnsureCreated: o teste funcional precisa exercitar o mesmo caminho que o
+      // deploy. Um schema criado por atalho passaria com migracao quebrada.
+      services.GetRequiredService<IdentityDbContext>().Database.Migrate();
+      services.GetRequiredService<CompaniesDbContext>().Database.Migrate();
+      services.GetRequiredService<CatalogDbContext>().Database.Migrate();
+      services.GetRequiredService<OfferingsDbContext>().Database.Migrate();
+      services.GetRequiredService<EngagementDbContext>().Database.Migrate();
+      services.GetRequiredService<CollectionsDbContext>().Database.Migrate();
 
-      var logger = scopedServices
-          .GetRequiredService<ILogger<CustomWebApplicationFactory<TProgram>>>();
-
-      try
-      {
-        // Testes funcionais usam EnsureCreated para nao acoplar ao script de migracao.
-        db.Database.EnsureCreated();
-
-        // Semente de teste especifica da feature entra aqui, no proprio teste ou numa fixture.
-      }
-      catch (Exception ex)
-      {
-        logger.LogError(ex, "An error occurred preparing the test database. Error: {exceptionMessage}", ex.Message);
-        throw;
-      }
+      // Semente especifica de cada teste entra no proprio teste ou numa fixture dele — nunca aqui.
+    }
+    catch (Exception ex)
+    {
+      logger.LogError(ex, "An error occurred preparing the test database. Error: {exceptionMessage}", ex.Message);
+      throw;
     }
 
     return host;
   }
 
   protected override void ConfigureWebHost(IWebHostBuilder builder)
-  {
-    if (_dbContainer != null)
-    {
-      // Force SQL Server mode even on non-Windows platforms for functional tests
-      Environment.SetEnvironmentVariable("USE_SQL_SERVER", "true");
-    }
-
-    builder
-        .ConfigureAppConfiguration((context, config) =>
-        {
-          if (_dbContainer != null)
-          {
-            // Set the connection string to use the Testcontainer
-            config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-              ["ConnectionStrings:DefaultConnection"] = _dbContainer.GetConnectionString()
-            });
-          }
-        })
-        .ConfigureServices(services =>
-        {
-          if (_dbContainer != null)
-          {
-            // Remove the app's ApplicationDbContext registration
-            var descriptors = services.Where(
-              d => d.ServiceType == typeof(AppDbContext) ||
-                   d.ServiceType == typeof(DbContextOptions<AppDbContext>))
-                  .ToList();
-
-            foreach (var descriptor in descriptors)
-            {
-              services.Remove(descriptor);
-            }
-
-            // Add ApplicationDbContext using the Testcontainers SQL Server instance
-            services.AddDbContext<AppDbContext>((provider, options) =>
-            {
-              options.UseSqlServer(_dbContainer.GetConnectionString());
-              var interceptor = provider.GetRequiredService<EventDispatchInterceptor>();
-              options.AddInterceptors(interceptor);
-            });
-          }
-        });
-  }
+    => builder.ConfigureAppConfiguration((_, config) =>
+      config.AddInMemoryCollection(new Dictionary<string, string?>
+      {
+        [$"ConnectionStrings:{InfrastructureServiceExtensions.ConnectionStringName}"] =
+          _dbContainer.GetConnectionString()
+      }));
 }

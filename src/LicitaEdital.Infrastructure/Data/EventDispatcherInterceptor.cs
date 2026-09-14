@@ -2,32 +2,33 @@
 
 namespace LicitaEdital.Infrastructure.Data;
 
-// Intercepts SaveChanges to dispatch domain events after changes are successfully saved
+/// <summary>
+/// Despacha os eventos de dominio **depois** que a gravacao teve sucesso — nao antes: evento
+/// publicado numa transacao que depois falha anuncia um fato que nao aconteceu.
+///
+/// Serve os seis contextos de modulo, e nao um em particular: o interceptor le o ChangeTracker do
+/// contexto que gravou, qualquer que seja.
+/// </summary>
 public class EventDispatchInterceptor(IDomainEventDispatcher domainEventDispatcher) : SaveChangesInterceptor
 {
   private readonly IDomainEventDispatcher _domainEventDispatcher = domainEventDispatcher;
 
-  // Called after SaveChangesAsync has completed successfully
   public override async ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,
     CancellationToken cancellationToken = new CancellationToken())
   {
     var context = eventData.Context;
-    if (context is not AppDbContext appDbContext)
+    if (context is null)
     {
       return await base.SavedChangesAsync(eventData, result, cancellationToken).ConfigureAwait(false);
     }
 
-    // Retrieve all tracked entities that have domain events
-    var entitiesWithEvents = appDbContext.ChangeTracker.Entries<HasDomainEventsBase>()
-      .Select(e => e.Entity)
-      .Where(e => e.DomainEvents.Any())
+    var entitiesWithEvents = context.ChangeTracker.Entries<HasDomainEventsBase>()
+      .Select(entry => entry.Entity)
+      .Where(entity => entity.DomainEvents.Any())
       .ToArray();
 
-    // Dispatch and clear domain events
     await _domainEventDispatcher.DispatchAndClearEvents(entitiesWithEvents);
 
     return await base.SavedChangesAsync(eventData, result, cancellationToken);
-
   }
 }
-
