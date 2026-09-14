@@ -280,6 +280,17 @@ registrados fica em `/listservices`.
 
 ---
 
+## Plano de construção
+
+O caminho do esqueleto vazio até a API que sustenta o frontend está em
+[`docs/plano-backend.md`](docs/plano-backend.md): os 27 endpoints com contrato firmado, as telas
+ainda sem contrato, 7 decisões a fechar antes da primeira linha (`D-01`..`D-07`) e 10 fases com
+critério de pronto. **Leia antes de começar qualquer feature.**
+
+O banco é **PostgreSQL** — o template vinha com SQL Server + SQLite, e a troca é a primeira tarefa
+da Fase 0 do plano. Enquanto ela não rodar, o que está escrito nos `appsettings` e em
+`InfrastructureServiceExtensions` ainda é o do template.
+
 ## Estado do repositório
 
 Este repositório nasceu do template `ardalis/CleanArchitecture`. Já foram removidos: o agregado de
