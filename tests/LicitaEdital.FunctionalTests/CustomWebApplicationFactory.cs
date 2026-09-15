@@ -1,6 +1,6 @@
 ﻿using LicitaEdital.BuildingBlocks.Persistence;
-using LicitaEdital.Infrastructure;
-using LicitaEdital.Web.Configurations;
+using LicitaEdital.Data;
+using LicitaEdital.Api.Configurations;
 using Testcontainers.PostgreSql;
 
 namespace LicitaEdital.FunctionalTests;
@@ -60,7 +60,7 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
     => builder.ConfigureAppConfiguration((_, config) =>
       config.AddInMemoryCollection(new Dictionary<string, string?>
       {
-        [$"ConnectionStrings:{InfrastructureServiceExtensions.ConnectionStringName}"] =
+        [$"ConnectionStrings:{DataServiceExtensions.ConnectionStringName}"] =
           _dbContainer.GetConnectionString()
       }));
 }

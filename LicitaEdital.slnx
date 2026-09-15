@@ -11,13 +11,14 @@
     <File Path="Directory.Packages.props" />
   </Folder>
   <Folder Name="/src/">
-    <Project Path="src/LicitaEdital.Core/LicitaEdital.Core.csproj" />
-    <Project Path="src/LicitaEdital.UseCases/LicitaEdital.UseCases.csproj" />
-    <Project Path="src/LicitaEdital.Infrastructure/LicitaEdital.Infrastructure.csproj" />
-    <Project Path="src/LicitaEdital.Query/LicitaEdital.Query.csproj" />
+    <Project Path="src/LicitaEdital.Domain/LicitaEdital.Domain.csproj" />
+    <Project Path="src/LicitaEdital.Application/LicitaEdital.Application.csproj" />
+    <Project Path="src/LicitaEdital.Data/LicitaEdital.Data.csproj" />
+    <Project Path="src/LicitaEdital.Queries/LicitaEdital.Queries.csproj" />
     <Project Path="src/LicitaEdital.Facade/LicitaEdital.Facade.csproj" />
     <Project Path="src/LicitaEdital.Providers/LicitaEdital.Providers.csproj" />
-    <Project Path="src/LicitaEdital.Web/LicitaEdital.Web.csproj" />
+    <Project Path="src/LicitaEdital.Tasks/LicitaEdital.Tasks.csproj" />
+    <Project Path="src/LicitaEdital.Api/LicitaEdital.Api.csproj" />
   </Folder>
   <Folder Name="/src/_aspire/">
     <Project Path="src/LicitaEdital.AspireHost/LicitaEdital.AspireHost.csproj" />
@@ -25,10 +26,10 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LicitaEdital.FunctionalTests/LicitaEdital.FunctionalTests.csproj">
-      <BuildDependency Project="src/LicitaEdital.Web/LicitaEdital.Web.csproj" />
+      <BuildDependency Project="src/LicitaEdital.Api/LicitaEdital.Api.csproj" />
     </Project>
     <Project Path="tests/LicitaEdital.IntegrationTests/LicitaEdital.IntegrationTests.csproj">
-      <BuildDependency Project="src/LicitaEdital.Infrastructure/LicitaEdital.Infrastructure.csproj" />
+      <BuildDependency Project="src/LicitaEdital.Data/LicitaEdital.Data.csproj" />
     </Project>
     <Project Path="tests/LicitaEdital.UnitTests/LicitaEdital.UnitTests.csproj" />
   </Folder>

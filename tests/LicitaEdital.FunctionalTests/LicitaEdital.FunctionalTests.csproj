@@ -20,9 +20,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\LicitaEdital.Infrastructure\LicitaEdital.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\LicitaEdital.UseCases\LicitaEdital.UseCases.csproj" />
-    <ProjectReference Include="..\..\src\LicitaEdital.Web\LicitaEdital.Web.csproj" />
+    <ProjectReference Include="..\..\src\LicitaEdital.Data\LicitaEdital.Data.csproj" />
+    <ProjectReference Include="..\..\src\LicitaEdital.Application\LicitaEdital.Application.csproj" />
+    <ProjectReference Include="..\..\src\LicitaEdital.Api\LicitaEdital.Api.csproj" />
   </ItemGroup>
 
 </Project>

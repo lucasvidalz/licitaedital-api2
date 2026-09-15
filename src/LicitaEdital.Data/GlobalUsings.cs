@@ -1,0 +1,17 @@
+﻿global using System.Reflection;
+global using Ardalis.GuardClauses;
+global using Ardalis.Result;
+global using Ardalis.SmartEnum;
+global using LicitaEdital.BuildingBlocks.Brasil;
+global using LicitaEdital.BuildingBlocks.Domain.Entities;
+global using LicitaEdital.BuildingBlocks.Domain.Events;
+global using LicitaEdital.BuildingBlocks.Domain.Repositories;
+global using LicitaEdital.BuildingBlocks.Persistence;
+global using LicitaEdital.BuildingBlocks.Persistence.Conventions;
+global using LicitaEdital.Data;
+global using LicitaEdital.Data.Config;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.EntityFrameworkCore.Metadata.Builders;
+global using Microsoft.Extensions.Configuration;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Logging;

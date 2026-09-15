@@ -1,4 +1,4 @@
-﻿using LicitaEdital.Core.Identity.Interfaces;
+﻿using LicitaEdital.Facade.Identity;
 
 namespace LicitaEdital.Providers.Smtp;
 

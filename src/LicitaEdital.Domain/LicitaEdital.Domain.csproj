@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Microsoft.Build.CentralPackageVersions" Version="2.1.3" />
+
+  <ItemGroup>
+    <PackageReference Include="Ardalis.GuardClauses" />
+    <PackageReference Include="Ardalis.Result" />
+    <PackageReference Include="LicitaEdital.BuildingBlocks.Brasil" />
+    <PackageReference Include="LicitaEdital.BuildingBlocks.Domain" />
+    <PackageReference Include="Ardalis.SmartEnum" />
+    <PackageReference Include="Ardalis.Specification" />
+    <PackageReference Include="Mediator.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Vogen" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- O dominio fala o vocabulario e os contratos do Facade. E a unica dependencia que ele tem. -->
+    <ProjectReference Include="..\LicitaEdital.Facade\LicitaEdital.Facade.csproj" />
+  </ItemGroup>
+
+</Project>

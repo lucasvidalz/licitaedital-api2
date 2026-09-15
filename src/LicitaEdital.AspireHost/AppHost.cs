@@ -26,7 +26,7 @@ var papercut = builder.AddContainer("papercut", "jijiechen/papercut", "latest")
   });
 
 // Add the web project with the database connection
-builder.AddProject<Projects.LicitaEdital_Web>("web")
+builder.AddProject<Projects.LicitaEdital_Api>("web")
   .WithReference(licitaEditalDb)
   .WithEnvironment("ASPNETCORE_ENVIRONMENT", builder.Environment.EnvironmentName)
   .WithEnvironment("Papercut__Smtp__Url", papercut.GetEndpoint("smtp"))

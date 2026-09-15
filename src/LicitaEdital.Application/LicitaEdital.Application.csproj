@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Ardalis.Result" />
+    <PackageReference Include="LicitaEdital.BuildingBlocks.Application" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Dominio para a regra, Queries para leitura — a direcao do diagrama. -->
+    <ProjectReference Include="..\LicitaEdital.Domain\LicitaEdital.Domain.csproj" />
+    <ProjectReference Include="..\LicitaEdital.Queries\LicitaEdital.Queries.csproj" />
+  </ItemGroup>
+
+</Project>

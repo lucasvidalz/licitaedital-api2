@@ -10,12 +10,17 @@
 
   <ItemGroup>
     <!--
-      So o Core: os providers implementam as interfaces declaradas la. **Nao ha referencia a EF
-      Core**, e isso e' uma trava, nao um acaso — sem DbContext ao alcance, ninguem abre transacao
-      em volta de uma chamada HTTP, que e' o que a spec §14 proibe ("sem transacao aberta durante
-      HTTP, scanner, storage, OCR, IA ou e-mail").
+      Implementa os contratos do Facade. `Data` e `Queries` entram porque duas dessas implementacoes
+      sao servidas pelo **nosso** banco, nao por sistema externo: `UserAccountService` roda sobre o
+      store do ASP.NET Identity e `CatalogFacade` sobre o contexto de leitura de Catalog.
+
+      Consequencia a conhecer: com `Data` ao alcance, a trava que impedia abrir transacao em volta de
+      chamada HTTP (spec §14) deixou de ser estrutural e virou disciplina. Provider de sistema
+      externo continua sem motivo para tocar DbContext.
     -->
-    <ProjectReference Include="..\LicitaEdital.Core\LicitaEdital.Core.csproj" />
+    <ProjectReference Include="..\LicitaEdital.Facade\LicitaEdital.Facade.csproj" />
+    <ProjectReference Include="..\LicitaEdital.Data\LicitaEdital.Data.csproj" />
+    <ProjectReference Include="..\LicitaEdital.Queries\LicitaEdital.Queries.csproj" />
   </ItemGroup>
 
 </Project>

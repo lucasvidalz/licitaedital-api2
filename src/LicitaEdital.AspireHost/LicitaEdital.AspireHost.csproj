@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LicitaEdital.Web\LicitaEdital.Web.csproj" />
+    <ProjectReference Include="..\LicitaEdital.Api\LicitaEdital.Api.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- The IsAspireProjectResource attribute tells .NET Aspire to treat this 

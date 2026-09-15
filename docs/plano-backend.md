@@ -102,7 +102,7 @@ Sem elas, a primeira feature escolhe por omissão e o resto herda.
 
 | ID | Decisão | Recomendação |
 | --- | --- | --- |
-| **D-01** | **Um `AppDbContext` ou um por módulo?** A spec de participação (§4) manda monólito modular com *schema/DbContext por módulo* e proíbe join entre schemas. O template tem um `AppDbContext` só. | **Um `DbContext` por módulo, schema PostgreSQL por módulo, desde a Fase 0.** Reverter depois custa migração de dados. Cada módulo vira uma pasta em `Core`/`UseCases`/`Infrastructure`, não um projeto novo. |
+| **D-01** | **Um `AppDbContext` ou um por módulo?** A spec de participação (§4) manda monólito modular com *schema/DbContext por módulo* e proíbe join entre schemas. O template tem um `AppDbContext` só. | **Um `DbContext` por módulo, schema PostgreSQL por módulo, desde a Fase 0.** Reverter depois custa migração de dados. Cada módulo vira uma pasta em `Domain`/`Application`/`Data`, não um projeto novo. |
 | **D-02** | **Multi-tenant: quando entra o `OrganizationId`?** A spec exige ele em toda tabela privada, com filtro explícito na query. | **Na Fase 0**, junto da primeira tabela. Adicionar coluna de tenant depois é migração perigosa em tabela com dado. |
 | **D-03** | **Identidade: ASP.NET Core Identity ou implementação própria?** | **Identity com cookie** (`AddIdentityCore` + `AddAuthentication().AddCookie`): entrega hash de senha, tokens de reset/confirmação com expiração e uso único, e lockout — que é exatamente o `DF-004` em aberto no `licitaledital-api`. Custa aceitar o schema dele num schema `identity` próprio. |
 | **D-04** | **Tipo de Id exposto:** `int` (como o template) ou opaco? A spec §6 exige *IDs privados opacos*, e todo `*-api.model.ts` tipa `id` como `string`. | **`Guid` v7** (`Guid.CreateVersion7()`, nativo no .NET 9+): ordenável por tempo, não vaza volume, serializa como string. |
@@ -121,8 +121,8 @@ Sem elas, a primeira feature escolhe por omissão e o resto herda.
 | Arquivo | Mudança |
 | --- | --- |
 | `Directory.Packages.props` | Remover `Microsoft.EntityFrameworkCore.SqlServer`, `Microsoft.EntityFrameworkCore.Sqlite`, `SQLite`, `Testcontainers.MsSql`. Adicionar `Npgsql.EntityFrameworkCore.PostgreSQL`, `Testcontainers.PostgreSql`, `Aspire.Hosting.PostgreSQL` |
-| `LicitaEdital.Infrastructure.csproj` | Trocar as duas `PackageReference` de provider por `Npgsql.EntityFrameworkCore.PostgreSQL` |
-| `InfrastructureServiceExtensions.cs` | Cai toda a cascata `isWindows`/`forceSqlServer`/fallback: uma connection string, `options.UseNpgsql(...)` |
+| `LicitaEdital.Data.csproj` | Trocar as duas `PackageReference` de provider por `Npgsql.EntityFrameworkCore.PostgreSQL` |
+| `DataServiceExtensions.cs` | Cai toda a cascata `isWindows`/`forceSqlServer`/fallback: uma connection string, `options.UseNpgsql(...)` |
 | `MiddlewareConfig.cs` | Cai o ramo `context.Database.IsSqlite()` → `EnsureCreated`. Com PostgreSQL é sempre `MigrateAsync()` |
 | `AppHost.cs` | `builder.AddSqlServer("sqlserver")` → `builder.AddPostgres("postgres")`; mantém `.WithLifetime(Persistent)` e o Papercut |
 | `appsettings*.json` | Uma `ConnectionStrings:licitaedital` (`Host=localhost;Port=5432;Database=licitaedital;...`). Senha via *user secrets*, nunca no arquivo |
@@ -147,7 +147,7 @@ Sem elas, a primeira feature escolhe por omissão e o resto herda.
 ### 0.3 Estrutura de módulos (D-01)
 
 ```
-src/LicitaEdital.Core/
+src/LicitaEdital.Domain/
   Identity/            usuário, área, permissão, organização, membership
   Companies/           perfil da empresa
   Catalog/             oportunidade, modalidade, item, documento publicado
@@ -158,7 +158,7 @@ src/LicitaEdital.Core/
   Collections/         execuções de coleta
 ```
 
-Mesmo recorte em `UseCases/` e `Infrastructure/Data/<Modulo>/`. Um schema PostgreSQL por módulo
+Mesmo recorte em `Application/` e `Data/<Modulo>/`. Um schema PostgreSQL por módulo
 (`identity`, `catalog`, …). Referência entre módulos é **id opaco + contrato de leitura**, nunca FK
 entre schemas.
 

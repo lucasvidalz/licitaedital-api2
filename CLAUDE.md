@@ -11,11 +11,13 @@ primeiro, padrão por camada depois.
 
 ## Regras invioláveis
 
-1. **A regra de dependência não se quebra.** `Core` não referencia ninguém. `UseCases` referencia
-   só `Core`. `Infrastructure` e `Web` referenciam para dentro, nunca o contrário. Se uma
-   implementação exige que `Core` conheça EF Core, HTTP, e-mail ou qualquer detalhe externo, a
-   resposta é **uma interface em `Core` implementada na camada de fora** — nunca uma referência nova
-   no `.csproj` do `Core`.
+1. **A direção das dependências é a do diagrama, e não se quebra.**
+   `Facade` → (nada, só a lib) · `Domain` → `Facade` · `Data` → `Domain` · `Queries` → `Data` ·
+   `Application` → `Domain` + `Queries` · `Tasks` → `Application` · `Providers` ⇢ implementa
+   `Facade` · `Api` → tudo.
+   Se uma implementação exige que `Domain` conheça EF Core, HTTP, e-mail ou qualquer detalhe
+   externo, a resposta é **uma interface em `Facade` implementada em `Providers`** — nunca uma
+   referência nova no `.csproj` do `Domain`, que só pode referenciar `Facade`.
 2. **Warning é erro.** `TreatWarningsAsErrors` está ligado em `Directory.Build.props`. Não silencie
    com `#pragma` nem com `NoWarn` novo: corrija. `Nullable` está habilitado — `!` só com motivo
    escrito ao lado.
@@ -25,7 +27,7 @@ primeiro, padrão por camada depois.
 4. **Uma implementação, um lugar.** Antes de criar helper, extensão ou abstração, procure primeiro
    na lib — `ResultExtensions`, `ApiProblem`, `PagedList`, `PageRequest`, `ErrorCodes`,
    `EfRepository`, `Cnpj`, `StateCode` moram lá — e depois em `Core/Interfaces/` e
-   `Infrastructure/Data/Config/`.
+   `Data/Config/`.
 5. **Migração de banco é arquivo gerado, nunca escrito à mão.** Sempre via `dotnet ef migrations
    add` (comando exato na seção *Comandos*), e sempre revisada antes de aceitar.
 6. **A base vem da lib, nunca reescrita aqui.** Entidade, evento de domínio, repositório, CQRS,
@@ -41,27 +43,33 @@ primeiro, padrão por camada depois.
 
 ```
 src/
-  LicitaEdital.Core/            domínio: entidades, agregados, value objects, eventos,
-                                specifications, interfaces. Zero dependência de framework.
-  LicitaEdital.UseCases/        CQRS: commands, queries, handlers, DTOs. Referencia só o Core.
-  LicitaEdital.Infrastructure/  escrita: DbContext por módulo, mapeamento, repositórios.
-  LicitaEdital.Query/           leitura: contexto sem rastreamento e query services.
-  LicitaEdital.Facade/          contratos de leitura entre módulos.
-  LicitaEdital.Providers/       integração com sistema externo, um diretório por sistema.
-  LicitaEdital.Web/             FastEndpoints (REPR), validação de request, composição de DI.
+  LicitaEdital.Facade/          SÓ interfaces — os contratos que o domínio declara — mais o
+                                vocabulário compartilhado (ids opacos, ValueRange). É o piso:
+                                não referencia nenhum projeto do produto, só a lib.
+  LicitaEdital.Domain/          entidades, agregados, value objects, eventos, specifications.
+  LicitaEdital.Data/            escrita: DbContext por módulo, mapeamento, repositórios, migrations.
+  LicitaEdital.Queries/         leitura: contexto sem rastreamento, query services e seus contratos.
+  LicitaEdital.Application/     CQRS: commands, queries e handlers. Domain para a regra,
+                                Queries para leitura.
+  LicitaEdital.Tasks/           trabalho reativo e agendado: handler de evento, job, rotina.
+  LicitaEdital.Providers/       SÓ implementações dos contratos do Facade.
+  LicitaEdital.Api/             FastEndpoints (REPR), validação de request, composição de DI.
   LicitaEdital.AspireHost/      orquestração local: PostgreSQL + Papercut (SMTP de teste).
   LicitaEdital.ServiceDefaults/ OpenTelemetry, health checks, service discovery, resiliência.
 tests/
   LicitaEdital.UnitTests/         domínio e handlers, sem I/O
-  LicitaEdital.IntegrationTests/  banco e componentes de Infrastructure
+  LicitaEdital.IntegrationTests/  banco e componentes de Data
   LicitaEdital.FunctionalTests/   endpoints HTTP ponta a ponta
 ```
 
-Dois caminhos, e eles não se misturam:
+Diagrama completo e o porquê de cada seta: [`docs/arquitetura.md`](docs/arquitetura.md).
+
+Três caminhos, e eles não se misturam:
 
 ```
-escrita   Endpoint → IMediator.Send(Command) → Handler → IRepository<T> → Infrastructure → banco
-leitura   Endpoint → IMediator.Send(Query)   → Handler → IXQueryService → Query → banco (sem tracking)
+escrita   API → IMediator.Send(Command) → Application → IRepository<T> → Data → banco
+leitura   API → IMediator.Send(Query)   → Application → IXQueryService → Queries → banco (sem tracking)
+reação    Domain publica evento → Tasks → Application / repositórios
 ```
 
 A fronteira entre módulos é atravessada por **fachada**, nunca por `DbContext` de outro módulo nem
@@ -92,7 +100,7 @@ Governadas por `.editorconfig` — ele é a fonte, o que segue é o resumo do qu
 ### Core — domínio
 
 Um diretório por **módulo**, e dentro dele um por agregado:
-`src/LicitaEdital.Core/<Modulo>/<Nome>Aggregate/`, com `Events/`, `Handlers/` e `Specifications/`
+`src/LicitaEdital.Domain/<Modulo>/<Nome>Aggregate/`, com `Events/`, `Handlers/` e `Specifications/`
 dentro quando houver. Os módulos são `Identity`, `Companies`, `Catalog`, `Offerings`, `Engagement`,
 `Collections` — e `Shared`, só para os ids que atravessam módulo.
 
@@ -152,8 +160,26 @@ public readonly partial struct CompanyId : IGuidId<CompanyId>
 Id é `Guid` v7 **gerado no construtor da entidade** (D-04), nunca pelo banco: ordenável por tempo,
 não vaza volume, e o mapeamento usa `ValueGeneratedNever()`. Nenhuma factory chama `New()`.
 
-**Enum de domínio** — `Ardalis.SmartEnum`, não `enum` nativo, quando o valor tem comportamento ou
-precisa persistir estável.
+**Enumeração é sempre SmartEnum, sempre no domínio.** `Ardalis.SmartEnum`, nunca `enum` nativo, e
+sempre em `Core/<Modulo>/<Agregado>Aggregate/` — junto do agregado a que pertence, não na camada que
+por acaso a consome primeiro.
+
+Vale **mesmo quando o valor não é persistido**. `OpportunitySort` nasceu como `enum` nativo em
+`UseCases` com a justificativa de "não vai para o banco", e estava errado por duas razões: o valor
+é contrato com o cliente (`?sort=score`), e `enum` nativo amarra esse contrato a uma constante
+numérica que ninguém declarou — inserir um membro no meio renumera os outros em silêncio. Com
+SmartEnum o texto que viaja é explícito e `FromValue` valida a entrada na fronteira.
+
+Enumeração usada por **mais de um módulo** vai para `Core/Shared/`, como `ValueRange` — mesma regra
+dos ids que atravessam módulo.
+
+| Onde | Exemplos |
+| --- | --- |
+| `Core/<Modulo>/<Agregado>Aggregate/` | `UserArea`, `MembershipStatus`, `PermissionCode`, `OpportunityStatus`, `OpportunityDocumentKind`, `OpportunitySort`, `SupplyType`, `AlertFrequency`, `PlanId`, `CollectionRunResult` |
+| `Core/Shared/` | `ValueRange` — Engagement e Collections usam |
+
+O valor (`.Value`) é contrato e persistência ao mesmo tempo: renomeá-lo quebra a tela **e** invalida
+a linha já gravada, sem erro de compilação de nenhum dos dois lados.
 
 **Evento de domínio** — `record` herdando `DomainEvent` (da lib), disparado por
 `RegisterDomainEvent` na entidade (ou `IMediator.Publish` num serviço de domínio, quando não há entidade viva — caso de
@@ -192,7 +218,7 @@ public class CreateCompanyHandler(IRepository<Company> repository)
 - **Mediator é o source generator** (pacote `Mediator`, de martinothamar), **não MediatR**: handler
   devolve `ValueTask`, e o assembly precisa estar listado em `Web/Configurations/MediatorConfig.cs`.
 - **Query pode furar o repositório** por performance: declare a interface do query service e o DTO
-  aqui (`IListCompaniesQueryService`), implemente em `LicitaEdital.Query/<Modulo>/`, e devolva DTO.
+  aqui (`IListCompaniesQueryService`), implemente em `LicitaEdital.Queries/<Modulo>/`, e devolva DTO.
   Vale quando a consulta filtra, ordena e pagina — trazer o agregado inteiro para descartar em
   memória é o que a exceção evita.
 - **DTO fica aqui**, não no `Core` nem no `Web` — a exceção é o DTO de **fachada**, que é contrato
@@ -203,13 +229,13 @@ public class CreateCompanyHandler(IRepository<Company> repository)
 
 ### Query — o lado de leitura
 
-Um projeto só para consulta. `LicitaEdital.Query`, um diretório por módulo.
+Um projeto só para consulta. `LicitaEdital.Queries`, um diretório por módulo.
 
 - Cada módulo tem um `<Modulo>ReadContext` herdando `ReadOnlyModuleDbContext` da lib. Ele já vem
   **sem rastreamento, sem detecção automática de alteração, sem lazy loading e recusando
   `SaveChanges`** — **nunca escreva `AsNoTracking()`**: o rastreamento não chega a ser ligado.
 - O mapeamento é o mesmo do lado de escrita: o read context aponta `ConfigurationAssembly` para
-  `LicitaEdital.Infrastructure`. Não redeclare `IEntityTypeConfiguration` aqui — dois mapeamentos
+  `LicitaEdital.Data`. Não redeclare `IEntityTypeConfiguration` aqui — dois mapeamentos
   divergem na primeira coluna renomeada.
 - **A interface e o DTO ficam em `UseCases`**, a implementação aqui. O handler não sabe se quem o
   atende é repositório ou query service.
@@ -254,7 +280,7 @@ atravessa é um contrato de leitura:
 Banco é **PostgreSQL**, com **um `DbContext` e um schema por módulo** (D-01). O mapa completo está
 em [`docs/modelagem-dados.md`](docs/modelagem-dados.md).
 
-Só **escrita**. Consulta de leitura é do projeto `LicitaEdital.Query`.
+Só **escrita**. Consulta de leitura é do projeto `LicitaEdital.Queries`.
 
 - `Data/<Modulo>/<Modulo>DbContext.cs`: um `DbSet` por raiz de agregado do módulo, `HasDefaultSchema`
   do seu schema, e `ApplyConfigurationsFromAssembly` **filtrado pelo namespace do próprio módulo** —
@@ -269,7 +295,7 @@ Só **escrita**. Consulta de leitura é do projeto `LicitaEdital.Query`.
   `.HasCnpjConversion()` / `.HasStateCodeConversion()` de `BrasilValueConverters`.
 - **Nada de FK entre schemas.** Referência a outro módulo é o id puro, sem propriedade de navegação.
 - Repositório genérico é `EfRepository<TContext, T>` (**da lib**), e cada agregado é registrado
-  **fechado** em `InfrastructureServiceExtensions.AddAggregate<TContext, TAggregate>()`. Agregado
+  **fechado** em `DataServiceExtensions.AddAggregate<TContext, TAggregate>()`. Agregado
   novo sem esse registro falha em runtime, não na compilação.
 - `snake_case`, filtro de soft delete e aplicação das configurações do módulo vêm de
   `ModuleDbContext` da lib. Só o `IdentityDbContext` fica de fora, porque precisa da base do ASP.NET
@@ -368,21 +394,21 @@ dotnet build LicitaEdital.slnx
 dotnet test  LicitaEdital.slnx --settings .runsettings
 
 # rodar só a API (exige um PostgreSQL alcançável pela connection string)
-dotnet run --project src/LicitaEdital.Web
+dotnet run --project src/LicitaEdital.Api
 
 # rodar tudo com Aspire (PostgreSQL + Papercut em container)
 dotnet run --project src/LicitaEdital.AspireHost
 
-# migração — a partir de src/LicitaEdital.Web/, UMA POR CONTEXTO.
+# migração — a partir de src/LicitaEdital.Api/, UMA POR CONTEXTO.
 # Contextos: IdentityDbContext, CompaniesDbContext, CatalogDbContext,
 #            OfferingsDbContext, EngagementDbContext, CollectionsDbContext
 dotnet ef migrations add <Nome> -c CatalogDbContext \
-  -p ../LicitaEdital.Infrastructure/LicitaEdital.Infrastructure.csproj \
-  -s LicitaEdital.Web.csproj -o Data/Catalog/Migrations
+  -p ../LicitaEdital.Data/LicitaEdital.Data.csproj \
+  -s LicitaEdital.Api.csproj -o Data/Catalog/Migrations
 
 dotnet ef database update -c CatalogDbContext \
-  -p ../LicitaEdital.Infrastructure/LicitaEdital.Infrastructure.csproj \
-  -s LicitaEdital.Web.csproj
+  -p ../LicitaEdital.Data/LicitaEdital.Data.csproj \
+  -s LicitaEdital.Api.csproj
 ```
 
 Mudou a lib? O ciclo é: subir `VersionPrefix` lá, `dotnet pack -c Release` (o `.nupkg` cai direto no

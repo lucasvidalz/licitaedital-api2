@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Microsoft.Build.CentralPackageVersions" Version="2.1.3" />
+
+  <ItemGroup>
+    <PackageReference Include="Mediator.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Trabalho reativo e agendado: handler de evento de dominio, job de fila, rotina periodica.
+      Depende de Application, nunca o contrario — quem dispara e' o dominio, por evento, e o
+      caso de uso nao sabe que existe alguem escutando.
+    -->
+    <ProjectReference Include="..\LicitaEdital.Application\LicitaEdital.Application.csproj" />
+  </ItemGroup>
+
+</Project>

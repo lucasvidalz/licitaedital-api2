@@ -35,8 +35,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\LicitaEdital.Core\LicitaEdital.Core.csproj" />
-    <ProjectReference Include="..\..\src\LicitaEdital.UseCases\LicitaEdital.UseCases.csproj" />
+    <ProjectReference Include="..\..\src\LicitaEdital.Domain\LicitaEdital.Domain.csproj" />
+    <ProjectReference Include="..\..\src\LicitaEdital.Application\LicitaEdital.Application.csproj" />
   </ItemGroup>
 
 </Project>

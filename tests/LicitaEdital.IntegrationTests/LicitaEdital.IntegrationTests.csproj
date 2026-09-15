@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\LicitaEdital.Infrastructure\LicitaEdital.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\LicitaEdital.Data\LicitaEdital.Data.csproj" />
   </ItemGroup>
 
   <ItemGroup>
