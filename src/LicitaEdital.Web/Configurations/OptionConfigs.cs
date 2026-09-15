@@ -1,5 +1,4 @@
 ﻿using Ardalis.ListStartupServices;
-using LicitaEdital.Infrastructure.Email;
 
 namespace LicitaEdital.Web.Configurations;
 
@@ -10,9 +9,9 @@ public static class OptionConfigs
                                                     Microsoft.Extensions.Logging.ILogger logger,
                                                     WebApplicationBuilder builder)
   {
-    services.Configure<MailserverConfiguration>(configuration.GetSection("Mailserver"))
-    // Configure Web Behavior
-    .Configure<CookiePolicyOptions>(options =>
+    // `MailserverConfiguration` saiu daqui: o envio de e-mail virou provider, e quem o configura e'
+    // `AddProviders` em LicitaEdital.Providers — junto da implementacao que o usa.
+    services.Configure<CookiePolicyOptions>(options =>
     {
       options.CheckConsentNeeded = context => true;
       options.MinimumSameSitePolicy = SameSiteMode.None;

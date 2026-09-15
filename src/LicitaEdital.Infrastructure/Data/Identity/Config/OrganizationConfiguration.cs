@@ -21,6 +21,6 @@ public class OrganizationConfiguration : IEntityTypeConfiguration<Organization>
 
     builder.Property(organization => organization.IsPlatform).IsRequired();
 
-    builder.UseXminAsConcurrencyToken();
+    builder.UseXminConcurrencyToken();
   }
 }

@@ -28,6 +28,6 @@ public class SubscriptionConfiguration : IEntityTypeConfiguration<Subscription>
       .HasDatabaseName("ux_subscriptions_organization")
       .ActiveOnly();
 
-    builder.UseXminAsConcurrencyToken();
+    builder.UseXminConcurrencyToken();
   }
 }

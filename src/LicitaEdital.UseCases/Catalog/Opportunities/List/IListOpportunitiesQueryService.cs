@@ -13,7 +13,7 @@ namespace LicitaEdital.UseCases.Catalog.Opportunities.List;
 /// </summary>
 public interface IListOpportunitiesQueryService
 {
-  Task<PagedResult<OpportunityListItemDto>> ListAsync(
+  Task<PagedList<OpportunityListItemDto>> ListAsync(
     OrganizationId organizationId,
     ListOpportunitiesFilter filter,
     OpportunitySort sort,

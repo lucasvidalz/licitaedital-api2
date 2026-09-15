@@ -52,6 +52,6 @@ public class CompanyProfileConfiguration : IEntityTypeConfiguration<CompanyProfi
       .HasDatabaseName("ux_company_profiles_cnpj")
       .ActiveOnly();
 
-    builder.UseXminAsConcurrencyToken();
+    builder.UseXminConcurrencyToken();
   }
 }

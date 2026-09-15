@@ -12,7 +12,7 @@ public class ListOpportunitiesQueryService(CatalogReadContext context) : IListOp
 {
   private readonly CatalogReadContext _context = context;
 
-  public async Task<PagedResult<OpportunityListItemDto>> ListAsync(
+  public async Task<PagedList<OpportunityListItemDto>> ListAsync(
     OrganizationId organizationId,
     ListOpportunitiesFilter filter,
     OpportunitySort sort,
@@ -32,7 +32,7 @@ public class ListOpportunitiesQueryService(CatalogReadContext context) : IListOp
     rows = ApplyFilter(rows, filter);
     rows = ApplySort(rows, sort);
 
-    var pageResult = await rows.ToPagedResultAsync(page, cancellationToken);
+    var pageResult = await rows.ToPagedListAsync(page, cancellationToken);
 
     return pageResult.Map(ToDto);
   }

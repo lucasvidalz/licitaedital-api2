@@ -37,6 +37,6 @@ public class RoleConfiguration : IEntityTypeConfiguration<Role>
 
     builder.HasIndex(role => role.Name).IsUnique().ActiveOnly();
 
-    builder.UseXminAsConcurrencyToken();
+    builder.UseXminConcurrencyToken();
   }
 }

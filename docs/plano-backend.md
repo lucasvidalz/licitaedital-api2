@@ -139,7 +139,7 @@ Sem elas, a primeira feature escolhe por omissão e o resto herda.
 - **Dinheiro em `bigint` de centavos**, batendo com o contrato (`*ValueCents`). Nunca `float`.
 - **Coleção de string (`positiveKeywords`, `servedRegions`, `catalogCodes`) → `text[]` nativo**, com
   índice GIN quando houver busca. Serializar como JSON string mata o filtro.
-- **Concorrência otimista com `xmin`** (`UseXminAsConcurrencyToken`), que a spec §6 exige em toda
+- **Concorrência otimista com `xmin`** (`UseXminConcurrencyToken`), que a spec §6 exige em toda
   tabela mutável e que o PostgreSQL já mantém de graça.
 - **Busca textual (`?search`)**: `citext` ou `ILIKE` com índice `pg_trgm` na Fase 4; `tsvector`
   quando o volume pedir. Decidir com dado, não agora.

@@ -1,4 +1,6 @@
 ﻿using LicitaEdital.Core.Catalog.CompatibilityAggregate;
+using LicitaEdital.Core.Shared;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace LicitaEdital.Infrastructure.Data.Catalog.Config;
 
@@ -17,13 +19,25 @@ public class OpportunityCompatibilityConfiguration : IEntityTypeConfiguration<Op
 
     // Referencia opaca a Offerings: id, sem FK. O modulo vizinho esta noutro schema, e uma FK
     // entre schemas e' exatamente o acoplamento que D-01 impede.
-    builder.Property(compatibility => compatibility.OfferingId).HasVogenConversion();
+    //
+    // Conversor escrito a mao, e nao `HasVogenConversion()`: o Vogen gera a extensao apenas para o
+    // tipo **nao-anulavel**, e esta propriedade e' `OfferingId?`. O EF aplica um
+    // `ValueConverter<T, TProvider>` a uma propriedade anulavel sozinho — converte so os valores
+    // presentes e deixa o nulo passar.
+    builder.Property(compatibility => compatibility.OfferingId)
+      .HasConversion(new ValueConverter<OfferingId, Guid>(
+        offeringId => offeringId.Value,
+        value => OfferingId.From(value)));
 
     builder.Property(compatibility => compatibility.OfferingName)
       .HasMaxLength(DataSchemaConstants.DefaultNameLength);
 
-    // Nulo e' estado real (`unrated`): organizacao sem oferta cadastrada nao tem nota.
-    builder.Property(compatibility => compatibility.Score).HasVogenConversion();
+    // Nulo e' estado real (`unrated`): organizacao sem oferta cadastrada nao tem nota. Mesmo
+    // motivo de `OfferingId` acima para o conversor ser explicito.
+    builder.Property(compatibility => compatibility.Score)
+      .HasConversion(new ValueConverter<CompatibilityScore, int>(
+        score => score.Value,
+        value => CompatibilityScore.From(value)));
 
     builder.PrimitiveCollection<List<string>>("_matchedTerms")
       .HasColumnName("matched_terms")
@@ -63,6 +77,6 @@ public class OpportunityCompatibilityConfiguration : IEntityTypeConfiguration<Op
     builder.HasIndex(compatibility => compatibility.EngineVersion)
       .HasDatabaseName("ix_opportunity_compatibilities_engine_version");
 
-    builder.UseXminAsConcurrencyToken();
+    builder.UseXminConcurrencyToken();
   }
 }

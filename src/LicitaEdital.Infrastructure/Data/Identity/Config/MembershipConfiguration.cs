@@ -39,6 +39,6 @@ public class MembershipConfiguration : IEntityTypeConfiguration<Membership>
     builder.HasIndex(membership => new { membership.OrganizationId, membership.Status })
       .HasDatabaseName("ix_memberships_organization_status");
 
-    builder.UseXminAsConcurrencyToken();
+    builder.UseXminConcurrencyToken();
   }
 }

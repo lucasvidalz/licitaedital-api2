@@ -367,7 +367,7 @@ unicidade contra uma linha que o usuário já não enxerga — e a mensagem não
 | Instante em `timestamptz` | `DateTimeOffset` + `TimeProvider` | Spec §6. Nunca `DateTime` local |
 | Dinheiro em `bigint` de centavos | `long?` | O contrato trafega inteiro (`*ValueCents`); converter na fronteira do banco reintroduziria arredondamento |
 | Quantidade em `numeric(18,6)` | `HasPrecision(18, 6)` | Fração de unidade aparece em edital de serviço; binário perderia o valor exato que a proposta vai multiplicar |
-| Concorrência otimista por `xmin` | `UseXminAsConcurrencyToken()` em todo agregado mutável | Spec §6 exige token de concorrência; o PostgreSQL já mantém `xmin` de graça, sem coluna nova |
+| Concorrência otimista por `xmin` | `UseXminConcurrencyToken()` da lib em todo agregado mutável | Spec §6 exige token de concorrência; o PostgreSQL já mantém `xmin` de graça, sem coluna nova. O atalho `UseXminAsConcurrencyToken()` do Npgsql **foi removido na versão 10** — o helper da lib faz o mesmo à mão |
 | Coleção de primitivo em `text[]` | `PrimitiveCollection<List<string>>("_campo")` | Operador de array e índice GIN |
 | Coleção de value object / SmartEnum em `text[]` | `CollectionConverters` (`ValueConverter` + **`ValueComparer`**) | Sem o comparador, o EF compara por referência e mudar um item não marca a entidade como alterada — a gravação some sem erro |
 | SmartEnum escalar em `text` | `HasConversion(e => e.Value, v => SmartEnum<T,string>.FromValue(v))` | O valor é contrato: viaja literalmente na API |
@@ -378,24 +378,21 @@ unicidade contra uma linha que o usuário já não enxerga — e a mensagem não
 
 ---
 
-## O que a primeira compilação vai conferir
+## O que a primeira compilação conferiu
 
-Nada aqui foi compilado — por `codex.md`, build é papel do dev. Estes são os pontos onde o modelo
-usa API que vale conferir no primeiro `dotnet build` / `dotnet ef migrations add`:
+Compilado em 15/09/2026: **solução inteira em 0 erros e 0 warnings**. Dos 6 pontos que estavam
+listados aqui como incertos, 4 passaram e 2 estavam errados:
 
-1. **`Npgsql.EntityFrameworkCore.PostgreSQL 10.0.0`** em `Directory.Packages.props` — a versão foi
-   alinhada ao EF Core 10 por convenção, sem restore. Se o restore reclamar, ajuste para a 10.0.x
-   publicada.
-2. **Mapeamento de coleção por campo privado** — `Property<List<T>>("_campo")` e
-   `PrimitiveCollection<List<string>>("_campo")` com `UsePropertyAccessMode(Field)`.
-3. **`HasMany<T>("_items")`** em `OpportunityConfiguration`, navegação só por campo.
-4. **`IdentityUserContext` + `HasDefaultSchema`** — se as tabelas do Identity não caírem no schema
-   `identity`, fixe cada uma com `ToTable(nome, "identity")`.
-5. **Acessibilidade do setter de `EntityBase<T,TId>.Id`** — as factories atribuem `Id` no
-   inicializador de objeto.
-6. **`SmartEnum<T,string>.FromValue`** como acesso estático na expressão de conversão.
-
----
+| Ponto | Resultado |
+| --- | --- |
+| `Npgsql.EntityFrameworkCore.PostgreSQL 10.0.0` | Existe e restaura |
+| Coleção por campo privado (`Property<List<T>>`, `PrimitiveCollection`) | Compila |
+| `HasMany<T>("_items")` por navegação de campo | Compila |
+| `IdentityUserContext` + `HasDefaultSchema` | Compila |
+| Setter de `EntityBase.Id` / `AggregateRoot` | Compila |
+| `SmartEnum<T,string>.FromValue` na expressão de conversão | Compila |
+| ❌ `UseXminAsConcurrencyToken()` | **Removido no Npgsql 10.** Virou `UseXminConcurrencyToken()` na lib, que mapeia a propriedade sombra à mão |
+| ❌ `HasVogenConversion()` em value object **anulável** | O Vogen só gera a extensão para o tipo não-anulável. `OfferingId?` e `CompatibilityScore?` usam `ValueConverter` explícito |
 
 ## O que falta antes das migrations
 

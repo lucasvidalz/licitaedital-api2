@@ -8,13 +8,13 @@
     <!-- Lib proprietaria, do feed local. Substitui o Ardalis.SharedKernel: entidade, evento,
          repositorio e despachante passam a ser nossos, porque e la que entram UUID v7
          automatico, auditoria, soft delete e tenant. -->
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Brasil" Version="0.3.0" />
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Domain" Version="0.3.0" />
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Integration" Version="0.3.0" />
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Application" Version="0.3.0" />
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Auth" Version="0.3.0" />
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Persistence" Version="0.3.0" />
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Web" Version="0.3.0" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Brasil" Version="0.5.0" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Domain" Version="0.5.0" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Integration" Version="0.5.0" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Application" Version="0.5.0" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Auth" Version="0.5.0" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Persistence" Version="0.5.0" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Web" Version="0.5.0" />
     <PackageVersion Include="Ardalis.SmartEnum" Version="8.2.0" />
     <PackageVersion Include="Ardalis.Specification" Version="9.3.1" />
     <PackageVersion Include="Ardalis.Specification.EntityFrameworkCore" Version="9.3.1" />
@@ -43,6 +43,13 @@
     <PackageVersion Include="ReportGenerator" Version="5.5.11" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.16.18" />
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
+    <!--
+      Transitiva do Testcontainers. Fixada porque a 2025.1.0 que ele traz tem vulnerabilidade de
+      severidade alta (GHSA-q939-rpr3-3284) e o NU1903 vira erro por TreatWarningsAsErrors.
+      Funciona por `CentralPackageTransitivePinningEnabled`. Remover quando o Testcontainers
+      atualizar a referencia por conta propria.
+    -->
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
     <PackageVersion Include="Serilog.Sinks.OpenTelemetry" Version="4.2.0" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="6.5.0" />

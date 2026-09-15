@@ -60,6 +60,6 @@ public class AlertPreferencesConfiguration : IEntityTypeConfiguration<AlertPrefe
       .HasDatabaseName("ux_alert_preferences_organization")
       .ActiveOnly();
 
-    builder.UseXminAsConcurrencyToken();
+    builder.UseXminConcurrencyToken();
   }
 }

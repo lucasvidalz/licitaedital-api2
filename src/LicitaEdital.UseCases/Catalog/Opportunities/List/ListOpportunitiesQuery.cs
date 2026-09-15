@@ -4,4 +4,4 @@
 public sealed record ListOpportunitiesQuery(
   ListOpportunitiesFilter Filter,
   OpportunitySort Sort,
-  PageRequest Page) : IQuery<Result<PagedResult<OpportunityListItemDto>>>;
+  PageRequest Page) : IQuery<Result<PagedList<OpportunityListItemDto>>>;

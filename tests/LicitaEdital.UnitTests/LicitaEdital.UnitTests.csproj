@@ -19,8 +19,13 @@
     </PackageReference>
     <PackageReference Include="ReportGenerator" />
     <PackageReference Include="xunit.v3" />
+    <!--
+      So as abstracoes: `NoOpMediator` implementa `IMediator` a mao. O source generator saiu daqui
+      porque, rodando neste projeto, ele varre Core e UseCases e reprova (MSG0005) todo evento de
+      dominio que ainda nao tem handler — uma checagem que faz sentido no host real, em
+      `Web/Configurations/MediatorConfig.cs`, e nao num projeto de teste que nem despacha mensagem.
+    -->
     <PackageReference Include="Mediator.Abstractions" />
-    <PackageReference Include="Mediator.SourceGenerator" />
   </ItemGroup>
 
   <ItemGroup>

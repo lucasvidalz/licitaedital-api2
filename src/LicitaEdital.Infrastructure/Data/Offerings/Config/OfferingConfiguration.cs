@@ -68,6 +68,6 @@ public class OfferingConfiguration : IEntityTypeConfiguration<Offering>
       .HasDatabaseName("ux_offerings_organization_name")
       .ActiveOnly();
 
-    builder.UseXminAsConcurrencyToken();
+    builder.UseXminConcurrencyToken();
   }
 }

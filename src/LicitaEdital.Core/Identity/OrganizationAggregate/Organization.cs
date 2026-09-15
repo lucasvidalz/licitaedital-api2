@@ -1,4 +1,6 @@
-﻿namespace LicitaEdital.Core.Identity.OrganizationAggregate;
+﻿using LicitaEdital.Core.Shared;
+
+namespace LicitaEdital.Core.Identity.OrganizationAggregate;
 
 /// <summary>
 /// O tenant. Toda tabela privada do sistema referencia uma organizacao, e nenhuma consulta de dado

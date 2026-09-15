@@ -110,6 +110,6 @@ public class OpportunityConfiguration : IEntityTypeConfiguration<Opportunity>
     builder.HasIndex(opportunity => opportunity.PublishedAt)
       .HasDatabaseName("ix_opportunities_published_at");
 
-    builder.UseXminAsConcurrencyToken();
+    builder.UseXminConcurrencyToken();
   }
 }

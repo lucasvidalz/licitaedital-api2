@@ -12,17 +12,17 @@ namespace LicitaEdital.UseCases.Catalog.Opportunities.List;
 public class ListOpportunitiesHandler(
   IListOpportunitiesQueryService queryService,
   IExecutionContext execution)
-  : IQueryHandler<ListOpportunitiesQuery, Result<PagedResult<OpportunityListItemDto>>>
+  : IQueryHandler<ListOpportunitiesQuery, Result<PagedList<OpportunityListItemDto>>>
 {
   private readonly IListOpportunitiesQueryService _queryService = queryService;
   private readonly IExecutionContext _execution = execution;
 
-  public async ValueTask<Result<PagedResult<OpportunityListItemDto>>> Handle(
+  public async ValueTask<Result<PagedList<OpportunityListItemDto>>> Handle(
     ListOpportunitiesQuery query, CancellationToken cancellationToken)
   {
     if (_execution.TenantId is not { } tenantId)
     {
-      return Result<PagedResult<OpportunityListItemDto>>.Unauthorized();
+      return Result<PagedList<OpportunityListItemDto>>.Unauthorized();
     }
 
     var page = await _queryService.ListAsync(

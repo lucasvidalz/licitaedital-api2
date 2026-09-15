@@ -2,6 +2,17 @@
   <Sdk Name="Microsoft.Build.CentralPackageVersions" Version="2.1.3" />
 
   <PropertyGroup>
+    <!--
+      MSG0005 do gerador do Mediator: "mensagem sem handler registrado". Sao 3 eventos de dominio
+      que ja existem e ainda nao tem consumidor — `OpportunityRefreshedEvent` e
+      `OfferingChangedEvent` esperam o motor de compatibilidade (Fase 4 do plano), e
+      `MembershipStatusChangedEvent` espera a invalidacao de sessao (Fase 2). O aviso esta certo; o
+      que ele nao sabe e' que o consumidor e' trabalho planejado, nao esquecimento.
+
+      **Tire esta linha assim que os tres handlers existirem** — a partir dai o aviso volta a ser
+      util: ele pega evento novo que ninguem escuta.
+    -->
+    <NoWarn>$(NoWarn);MSG0005</NoWarn>
     <PreserveCompilationContext>true</PreserveCompilationContext>
     <OutputType>Exe</OutputType>
     <WebProjectMode>true</WebProjectMode>

@@ -23,7 +23,7 @@ primeiro, padrão por camada depois.
    Include="X" />` sem `Version`, e a versão entra em `Directory.Packages.props`. Pacote novo é
    decisão, não detalhe — justifique antes de adicionar.
 4. **Uma implementação, um lugar.** Antes de criar helper, extensão ou abstração, procure primeiro
-   na lib — `ResultExtensions`, `ApiProblem`, `PagedResult`, `PageRequest`, `ErrorCodes`,
+   na lib — `ResultExtensions`, `ApiProblem`, `PagedList`, `PageRequest`, `ErrorCodes`,
    `EfRepository`, `Cnpj`, `StateCode` moram lá — e depois em `Core/Interfaces/` e
    `Infrastructure/Data/Config/`.
 5. **Migração de banco é arquivo gerado, nunca escrito à mão.** Sempre via `dotnet ef migrations
@@ -196,7 +196,7 @@ public class CreateCompanyHandler(IRepository<Company> repository)
   Vale quando a consulta filtra, ordena e pagina — trazer o agregado inteiro para descartar em
   memória é o que a exceção evita.
 - **DTO fica aqui**, não no `Core` nem no `Web` — a exceção é o DTO de **fachada**, que é contrato
-  entre módulos e mora em `Core/<Modulo>/Facade/`. Paginação usa `PagedResult<T>` e `PageRequest`
+  entre módulos e mora em `Core/<Modulo>/Facade/`. Paginação usa `PagedList<T>` e `PageRequest`
   da lib, que já limita o tamanho de página no servidor.
 - Cross-cutting (log, validação, cache) entra como pipeline behavior em `MediatorConfig`, nunca
   espalhado nos handlers.
@@ -213,7 +213,7 @@ Um projeto só para consulta. `LicitaEdital.Query`, um diretório por módulo.
   divergem na primeira coluna renomeada.
 - **A interface e o DTO ficam em `UseCases`**, a implementação aqui. O handler não sabe se quem o
   atende é repositório ou query service.
-- Listagem paginada usa `ToPagedResultAsync(page, ct)` da lib. Filtro opcional usa `WhereIf` — a
+- Listagem paginada usa `ToPagedListAsync(page, ct)` da lib. Filtro opcional usa `WhereIf` — a
   alternativa (`WHERE (@p IS NULL OR coluna = @p)`) costuma cegar o índice.
 - Busca textual com `EF.Functions.ILike`, nunca `ToLower().Contains()`, que impede o uso de índice.
 - `NULLS LAST` se escreve `OrderBy(x => x.Campo == null).ThenBy...` — sem isso o PostgreSQL põe
@@ -277,7 +277,7 @@ Só **escrita**. Consulta de leitura é do projeto `LicitaEdital.Query`.
 - Auditoria, soft delete, guarda de tenant e despacho de eventos são **4 interceptors da lib**,
   ligados por `options.AddBuildingBlocksInterceptors(provider)`. Não carimbe data nem autor no
   handler.
-- Todo agregado mutável leva `UseXminAsConcurrencyToken()`.
+- Todo agregado mutável leva `UseXminConcurrencyToken()` da lib.
 - **Índice único sobre entidade com soft delete leva `.ActiveOnly()`** — sem o filtro parcial, a
   linha excluída continua ocupando o índice e o recadastro falha contra um registro invisível.
 - Nunca vaze tipo de EF Core (`DbContext`, `IQueryable` de entidade) para `UseCases` ou `Web`.

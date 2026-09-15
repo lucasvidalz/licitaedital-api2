@@ -20,8 +20,9 @@ namespace LicitaEdital.FunctionalTests;
 public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProgram>, IAsyncLifetime
   where TProgram : class
 {
-  private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder()
-    .WithImage("postgres:17-alpine")
+  // A imagem vai no construtor: o construtor sem parametro foi marcado obsoleto pelo
+  // Testcontainers, que quer a imagem explicita para o teste nao depender de um default movel.
+  private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder("postgres:17-alpine")
     .WithDatabase("licitaedital_test")
     .Build();
 
