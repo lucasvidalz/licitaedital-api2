@@ -1,4 +1,5 @@
-﻿using LicitaEdital.Providers.Smtp;
+﻿using LicitaEdital.Core.Identity.Interfaces;
+using LicitaEdital.Providers.Smtp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,7 +18,10 @@ public static class ProviderServiceExtensions
     IConfiguration config)
   {
     services.Configure<MailserverConfiguration>(config.GetSection("Mailserver"));
+    services.Configure<AuthNotificationOptions>(config.GetSection("Auth:Notifications"));
+
     services.AddScoped<IEmailSender, MimeKitEmailSender>();
+    services.AddScoped<IAuthenticationNotifier, EmailAuthenticationNotifier>();
 
     return services;
   }

@@ -64,6 +64,11 @@ public static class MiddlewareConfig
       // O laco dos seis contextos vive na lib: ele era identico aqui e na fixture de teste
       // funcional, e um contexto novo exigia lembrar de acrescentar nos dois lugares.
       await app.Services.MigrateAllAsync(ModuleContexts);
+
+      // Semente de identidade logo depois: sem papel padrao, `POST /auth/register` nao tem o que
+      // atribuir. Idempotente, entao roda a cada inicializacao sem duplicar.
+      using var scope = app.Services.CreateScope();
+      await IdentitySeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<IdentityDbContext>());
     }
 
     return app;

@@ -1,6 +1,8 @@
 ﻿using Ardalis.GuardClauses;
 using LicitaEdital.Query.Catalog;
+using LicitaEdital.Query.Identity;
 using LicitaEdital.UseCases.Catalog.Opportunities.List;
+using LicitaEdital.UseCases.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,7 +31,10 @@ public static class QueryServiceExtensions
     // alguem a rodar `dotnet ef` contra o contexto errado.
     services.AddDbContext<CatalogReadContext>(options => options.UseNpgsql(connectionString));
 
+    services.AddDbContext<IdentityReadContext>(options => options.UseNpgsql(connectionString));
+
     services.AddScoped<IListOpportunitiesQueryService, ListOpportunitiesQueryService>();
+    services.AddScoped<IAuthenticatedUserReader, AuthenticatedUserReader>();
 
     return services;
   }

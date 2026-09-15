@@ -14,6 +14,7 @@ using LicitaEdital.Infrastructure.Data.Catalog;
 using LicitaEdital.Infrastructure.Data.Collections;
 using LicitaEdital.Infrastructure.Data.Companies;
 using LicitaEdital.Infrastructure.Data.Engagement;
+using LicitaEdital.Core.Identity.Interfaces;
 using LicitaEdital.Infrastructure.Data.Identity;
 using LicitaEdital.Infrastructure.Data.Offerings;
 
@@ -61,6 +62,11 @@ public static class InfrastructureServiceExtensions
       .AddAggregate<EngagementDbContext, Subscription>()
       .AddAggregate<CollectionsDbContext, CollectionRun>()
       .AddAggregate<CollectionsDbContext, CoverageSettings>();
+
+    // A **composicao** do ASP.NET Core Identity fica no Web (`ServiceConfigs`): o
+    // `AddDefaultTokenProviders` mora no framework compartilhado do ASP.NET, fora dos pacotes
+    // `Microsoft.Extensions.Identity.*` que este projeto referencia. Aqui fica so' a implementacao.
+    services.AddScoped<IUserAccountService, UserAccountService>();
 
     logger.LogInformation("{Project} services registered", "Infrastructure");
 
