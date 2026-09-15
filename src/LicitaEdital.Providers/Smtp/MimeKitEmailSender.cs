@@ -1,6 +1,6 @@
 ﻿using LicitaEdital.Core.Interfaces;
 
-namespace LicitaEdital.Infrastructure.Email;
+namespace LicitaEdital.Providers.Smtp;
 
 public class MimeKitEmailSender(ILogger<MimeKitEmailSender> logger,
   IOptions<MailserverConfiguration> mailserverOptions) : IEmailSender

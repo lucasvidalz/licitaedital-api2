@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Microsoft.Build.CentralPackageVersions" Version="2.1.3" />
+
+  <ItemGroup>
+    <PackageReference Include="Ardalis.GuardClauses" />
+    <PackageReference Include="LicitaEdital.BuildingBlocks.Persistence" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LicitaEdital.Core\LicitaEdital.Core.csproj" />
+    <ProjectReference Include="..\LicitaEdital.UseCases\LicitaEdital.UseCases.csproj" />
+    <!--
+      Referencia a Infrastructure existe por **um** motivo: reusar as IEntityTypeConfiguration do
+      lado de escrita. Sem isso, o contexto de leitura teria mapeamento proprio e os dois
+      divergiriam na primeira coluna renomeada — com o erro aparecendo so em runtime.
+      Nada mais de Infrastructure e' usado aqui: nenhum repositorio, nenhum contexto de escrita.
+    -->
+    <ProjectReference Include="..\LicitaEdital.Infrastructure\LicitaEdital.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

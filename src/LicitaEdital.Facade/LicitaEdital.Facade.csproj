@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Microsoft.Build.CentralPackageVersions" Version="2.1.3" />
+
+  <ItemGroup>
+    <ProjectReference Include="..\LicitaEdital.Core\LicitaEdital.Core.csproj" />
+    <!--
+      As fachadas sao **leitura entre modulos**, entao se apoiam no lado de leitura: contexto sem
+      rastreamento, sem interceptor de gravacao. Facade nao referencia Infrastructure — um modulo
+      que precisasse gravar no schema de outro estaria violando a fronteira, nao faltando uma
+      referencia.
+    -->
+    <ProjectReference Include="..\LicitaEdital.Query\LicitaEdital.Query.csproj" />
+  </ItemGroup>
+
+</Project>

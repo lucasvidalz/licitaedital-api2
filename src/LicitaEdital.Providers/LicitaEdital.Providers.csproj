@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Microsoft.Build.CentralPackageVersions" Version="2.1.3" />
+
+  <ItemGroup>
+    <PackageReference Include="LicitaEdital.BuildingBlocks.Integration" />
+    <PackageReference Include="MailKit" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      So o Core: os providers implementam as interfaces declaradas la. **Nao ha referencia a EF
+      Core**, e isso e' uma trava, nao um acaso — sem DbContext ao alcance, ninguem abre transacao
+      em volta de uma chamada HTTP, que e' o que a spec §14 proibe ("sem transacao aberta durante
+      HTTP, scanner, storage, OCR, IA ou e-mail").
+    -->
+    <ProjectReference Include="..\LicitaEdital.Core\LicitaEdital.Core.csproj" />
+  </ItemGroup>
+
+</Project>

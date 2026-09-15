@@ -1,6 +1,6 @@
 ﻿using LicitaEdital.Core.Interfaces;
 
-namespace LicitaEdital.Infrastructure.Email;
+namespace LicitaEdital.Providers.Smtp;
 
 public class FakeEmailSender(ILogger<FakeEmailSender> logger) : IEmailSender
 {

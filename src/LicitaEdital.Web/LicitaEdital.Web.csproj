@@ -28,6 +28,10 @@
   <ItemGroup>
     <ProjectReference Include="..\LicitaEdital.Infrastructure\LicitaEdital.Infrastructure.csproj" />
     <ProjectReference Include="..\LicitaEdital.UseCases\LicitaEdital.UseCases.csproj" />
+    <!-- Composicao: o Web e' o unico que enxerga os tres, e so para registrar no DI. -->
+    <ProjectReference Include="..\LicitaEdital.Query\LicitaEdital.Query.csproj" />
+    <ProjectReference Include="..\LicitaEdital.Facade\LicitaEdital.Facade.csproj" />
+    <ProjectReference Include="..\LicitaEdital.Providers\LicitaEdital.Providers.csproj" />
     <ProjectReference Include="..\LicitaEdital.ServiceDefaults\LicitaEdital.ServiceDefaults.csproj" />
   </ItemGroup>
 

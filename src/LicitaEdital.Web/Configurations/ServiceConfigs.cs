@@ -1,8 +1,9 @@
 ﻿using LicitaEdital.BuildingBlocks.Application;
 using LicitaEdital.BuildingBlocks.Auth;
-using LicitaEdital.Core.Interfaces;
+using LicitaEdital.Facade;
 using LicitaEdital.Infrastructure;
-using LicitaEdital.Infrastructure.Email;
+using LicitaEdital.Providers;
+using LicitaEdital.Query;
 
 namespace LicitaEdital.Web.Configurations;
 
@@ -11,19 +12,22 @@ public static class ServiceConfigs
   public static IServiceCollection AddServiceConfigs(this IServiceCollection services,
     Microsoft.Extensions.Logging.ILogger logger, WebApplicationBuilder builder)
   {
+    var config = builder.Configuration;
+
     // Base proprietaria: TimeProvider, despachante de eventos e contexto de execucao (Application);
     // sessao por cookie, XSRF e policies de permissao/area (Auth).
     services.AddBuildingBlocksApplication()
             .AddBuildingBlocksAuth();
 
-    services.AddInfrastructureServices(builder.Configuration, logger)
-            .AddMediatorSourceGen(logger);
+    services
+      .AddInfrastructureServices(config, logger)  // escrita: contextos de modulo e repositorios
+      .AddQueryServices(config)                   // leitura: contextos sem rastreamento
+      .AddModuleFacades()                         // contratos de leitura entre modulos
+      .AddProviders(config)                       // integracoes com sistema externo
+      .AddMediatorSourceGen(logger);
 
-    // O servidor de e-mail local e' configurado pelo Aspire (Papercut).
-    // Ver: https://ardalis.com/configuring-a-local-test-email-server/
-    services.AddScoped<IEmailSender, MimeKitEmailSender>();
-
-    logger.LogInformation("{Project} services registered", "BuildingBlocks, Infrastructure, Mediator e Email");
+    logger.LogInformation("{Project} services registered",
+      "BuildingBlocks, Infrastructure, Query, Facade, Providers e Mediator");
 
     return services;
   }

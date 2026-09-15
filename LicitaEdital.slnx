@@ -12,8 +12,11 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/LicitaEdital.Core/LicitaEdital.Core.csproj" />
-    <Project Path="src/LicitaEdital.Infrastructure/LicitaEdital.Infrastructure.csproj" />
     <Project Path="src/LicitaEdital.UseCases/LicitaEdital.UseCases.csproj" />
+    <Project Path="src/LicitaEdital.Infrastructure/LicitaEdital.Infrastructure.csproj" />
+    <Project Path="src/LicitaEdital.Query/LicitaEdital.Query.csproj" />
+    <Project Path="src/LicitaEdital.Facade/LicitaEdital.Facade.csproj" />
+    <Project Path="src/LicitaEdital.Providers/LicitaEdital.Providers.csproj" />
     <Project Path="src/LicitaEdital.Web/LicitaEdital.Web.csproj" />
   </Folder>
   <Folder Name="/src/_aspire/">

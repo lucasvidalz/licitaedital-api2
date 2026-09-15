@@ -1,4 +1,4 @@
-﻿namespace LicitaEdital.Infrastructure.Email;
+﻿namespace LicitaEdital.Providers.Smtp;
 
 public class MailserverConfiguration()
 {

@@ -44,7 +44,10 @@ src/
   LicitaEdital.Core/            domínio: entidades, agregados, value objects, eventos,
                                 specifications, interfaces. Zero dependência de framework.
   LicitaEdital.UseCases/        CQRS: commands, queries, handlers, DTOs. Referencia só o Core.
-  LicitaEdital.Infrastructure/  EF Core, repositórios, query services, e-mail, serviços externos.
+  LicitaEdital.Infrastructure/  escrita: DbContext por módulo, mapeamento, repositórios.
+  LicitaEdital.Query/           leitura: contexto sem rastreamento e query services.
+  LicitaEdital.Facade/          contratos de leitura entre módulos.
+  LicitaEdital.Providers/       integração com sistema externo, um diretório por sistema.
   LicitaEdital.Web/             FastEndpoints (REPR), validação de request, composição de DI.
   LicitaEdital.AspireHost/      orquestração local: PostgreSQL + Papercut (SMTP de teste).
   LicitaEdital.ServiceDefaults/ OpenTelemetry, health checks, service discovery, resiliência.
@@ -54,8 +57,15 @@ tests/
   LicitaEdital.FunctionalTests/   endpoints HTTP ponta a ponta
 ```
 
-Fluxo de uma requisição: `Endpoint (Web)` → `IMediator.Send(Command/Query)` → `Handler (UseCases)`
-→ `IRepository<T>` / `IXQueryService` → `Infrastructure` → banco.
+Dois caminhos, e eles não se misturam:
+
+```
+escrita   Endpoint → IMediator.Send(Command) → Handler → IRepository<T> → Infrastructure → banco
+leitura   Endpoint → IMediator.Send(Query)   → Handler → IXQueryService → Query → banco (sem tracking)
+```
+
+A fronteira entre módulos é atravessada por **fachada**, nunca por `DbContext` de outro módulo nem
+por join entre schemas.
 
 ---
 
@@ -181,17 +191,70 @@ public class CreateCompanyHandler(IRepository<Company> repository)
   `Ardalis.Result` — nunca exceção como fluxo de controle, nunca tipo do ASP.NET aqui.
 - **Mediator é o source generator** (pacote `Mediator`, de martinothamar), **não MediatR**: handler
   devolve `ValueTask`, e o assembly precisa estar listado em `Web/Configurations/MediatorConfig.cs`.
-- **Query pode furar o repositório** por performance: declare a interface do query service aqui
-  (`IListCompaniesQueryService`), implemente em `Infrastructure/Data/Queries/`, e devolva DTO.
-- **DTO fica aqui**, não no `Core` nem no `Web`. Paginação usa `PagedResult<T>`; tamanho de página
-  vem de `Constants`.
+- **Query pode furar o repositório** por performance: declare a interface do query service e o DTO
+  aqui (`IListCompaniesQueryService`), implemente em `LicitaEdital.Query/<Modulo>/`, e devolva DTO.
+  Vale quando a consulta filtra, ordena e pagina — trazer o agregado inteiro para descartar em
+  memória é o que a exceção evita.
+- **DTO fica aqui**, não no `Core` nem no `Web` — a exceção é o DTO de **fachada**, que é contrato
+  entre módulos e mora em `Core/<Modulo>/Facade/`. Paginação usa `PagedResult<T>` e `PageRequest`
+  da lib, que já limita o tamanho de página no servidor.
 - Cross-cutting (log, validação, cache) entra como pipeline behavior em `MediatorConfig`, nunca
   espalhado nos handlers.
+
+### Query — o lado de leitura
+
+Um projeto só para consulta. `LicitaEdital.Query`, um diretório por módulo.
+
+- Cada módulo tem um `<Modulo>ReadContext` herdando `ReadOnlyModuleDbContext` da lib. Ele já vem
+  **sem rastreamento, sem detecção automática de alteração, sem lazy loading e recusando
+  `SaveChanges`** — **nunca escreva `AsNoTracking()`**: o rastreamento não chega a ser ligado.
+- O mapeamento é o mesmo do lado de escrita: o read context aponta `ConfigurationAssembly` para
+  `LicitaEdital.Infrastructure`. Não redeclare `IEntityTypeConfiguration` aqui — dois mapeamentos
+  divergem na primeira coluna renomeada.
+- **A interface e o DTO ficam em `UseCases`**, a implementação aqui. O handler não sabe se quem o
+  atende é repositório ou query service.
+- Listagem paginada usa `ToPagedResultAsync(page, ct)` da lib. Filtro opcional usa `WhereIf` — a
+  alternativa (`WHERE (@p IS NULL OR coluna = @p)`) costuma cegar o índice.
+- Busca textual com `EF.Functions.ILike`, nunca `ToLower().Contains()`, que impede o uso de índice.
+- `NULLS LAST` se escreve `OrderBy(x => x.Campo == null).ThenBy...` — sem isso o PostgreSQL põe
+  `NULL` primeiro num `DESC`, e o feed abre com as linhas sem nota no topo.
+- Referência viva: `Query/Catalog/ListOpportunitiesQueryService.cs`.
+
+### Facade — leitura entre módulos
+
+Um módulo **nunca** alcança o `DbContext`, o schema ou as tabelas de outro (spec §4). O que
+atravessa é um contrato de leitura:
+
+- **Contrato e DTO em `Core/<Modulo>/Facade/`**, implementação em `LicitaEdital.Facade/<Modulo>/`.
+  O contrato no Core é o que permite ao módulo consumidor enxergar o tipo sem referenciar o projeto
+  de fachada.
+- Devolve DTO, nunca entidade — entregar o agregado daria ao outro módulo os métodos que o mudam.
+- **Recebe coleção de ids, não um id por chamada.** N+1 atravessando fronteira de módulo é o pior
+  lugar para ele acontecer.
+- O DTO da fachada é **propositalmente separado** do DTO da API, mesmo quando hoje coincidem: um é
+  o acordo entre módulos, o outro é o contrato com o cliente, e cada um muda por sua razão.
+- Referência viva: `Core/Catalog/Facade/ICatalogFacade.cs` + `Facade/Catalog/CatalogFacade.cs`.
+
+### Providers — sistemas externos
+
+`LicitaEdital.Providers`, um diretório por sistema (`Smtp/`, e a seguir `Pncp/`, `ComprasGov/`,
+`Storage/`).
+
+- **O projeto não referencia EF Core, e isso é trava, não acaso.** Sem `DbContext` ao alcance,
+  ninguém abre transação em volta de uma chamada HTTP — o que a spec §14 proíbe explicitamente.
+- A interface fica em `Core/Interfaces/`; a implementação, aqui.
+- Provider HTTP usa `AddExternalHttpClient` da lib, **nunca `AddHttpClient` nu**: é o que traz a
+  guarda de destino (SSRF — bloqueia loopback, rede privada, link-local e metadata endpoint,
+  revalidando a cada redirect), o bloqueio de redirect automático, a resiliência e o timeout.
+- Falha de terceiro é `ProviderException`, que carrega o nome do provedor e **não** carrega corpo de
+  resposta nem URL completa — é onde token e credencial costumam estar (§19).
 
 ### Infrastructure — dados e integrações
 
 Banco é **PostgreSQL**, com **um `DbContext` e um schema por módulo** (D-01). O mapa completo está
 em [`docs/modelagem-dados.md`](docs/modelagem-dados.md).
+
+Só **escrita**. Consulta de leitura é do projeto `LicitaEdital.Query`.
 
 - `Data/<Modulo>/<Modulo>DbContext.cs`: um `DbSet` por raiz de agregado do módulo, `HasDefaultSchema`
   do seu schema, e `ApplyConfigurationsFromAssembly` **filtrado pelo namespace do próprio módulo** —
