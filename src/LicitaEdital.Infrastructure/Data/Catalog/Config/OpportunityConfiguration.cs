@@ -37,9 +37,7 @@ public class OpportunityConfiguration : IEntityTypeConfiguration<Opportunity>
       .HasMaxLength(DataSchemaConstants.DefaultCodeLength);
 
     builder.Property(opportunity => opportunity.State)
-      .HasVogenConversion()
-      .HasMaxLength(StateCode.Length)
-      .IsFixedLength()
+      .HasStateCodeConversion()
       .IsRequired();
 
     builder.Property(opportunity => opportunity.City)

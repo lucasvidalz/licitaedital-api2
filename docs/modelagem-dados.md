@@ -93,15 +93,26 @@ erDiagram
     uuid id PK
     uuid organization_id UK "1 por organização"
     text company_name
-    char14 cnpj UK "sem máscara, DV conferido"
+    varchar14 cnpj UK "sem máscara, alfanumérico, DV conferido"
     text city
-    char2 state
+    varchar2 state
     text business_area
   }
 ```
 
 Cinco campos — exatamente os de `CompanyProfileApiItem`. Não acrescentar coluna que a tela não pede
 (SEC-64); o cadastro rico é o assistente de registro, que ainda não tem endpoint (AD-041).
+
+**O CNPJ é validado nos dois formatos.** `Cnpj`, de `LicitaEdital.BuildingBlocks.Brasil`, aceita o
+numérico de sempre e o alfanumérico que entra em produção em julho/2026 (IN RFB 2.229/2024) — 14
+posições, as 12 primeiras podendo conter `A`–`Z`, DV numérico pelo módulo 11 sobre `ASCII − 48`.
+Guardado sem máscara e em maiúsculas, em `varchar(14)` e não `char(14)`: `char` no PostgreSQL
+preenche com espaço à direita e compara ignorando esse espaço — semântica surpreendente num campo
+que é chave única.
+
+> ⚠️ O validador do frontend (`company-profile/validators/cnpj.validator.ts`) ainda reduz a entrada
+> a dígitos (`replace(/\D/g, '')`) e rejeitaria um CNPJ alfanumérico. É trabalho do outro
+> repositório, registrado aqui só para não se perder.
 
 `GET /company-profile` responde **404 quando não há cadastro**, e isso é o primeiro estado normal do
 ciclo de vida, não falha (AD-032). Daí o índice único por organização: sem id na rota, duas linhas
@@ -125,7 +136,7 @@ erDiagram
     text object
     text buyer_name
     text contract_number
-    char2 state
+    varchar2 state
     text city
     text city_ibge_code
     text modality_code
@@ -361,6 +372,7 @@ unicidade contra uma linha que o usuário já não enxerga — e a mensagem não
 | Coleção de value object / SmartEnum em `text[]` | `CollectionConverters` (`ValueConverter` + **`ValueComparer`**) | Sem o comparador, o EF compara por referência e mudar um item não marca a entidade como alterada — a gravação some sem erro |
 | SmartEnum escalar em `text` | `HasConversion(e => e.Value, v => SmartEnum<T,string>.FromValue(v))` | O valor é contrato: viaja literalmente na API |
 | Value object via Vogen | `HasVogenConversion()` + entrada em `VogenEfCoreConverters` | Sem a entrada no conversor, a propriedade some do modelo em silêncio — não dá erro de compilação, dá tabela sem coluna |
+| Value object da lib (`Cnpj`, `StateCode`) | `HasCnpjConversion()` / `HasStateCodeConversion()` | São tipos escritos à mão na lib, não gerados pelo Vogen — têm conversor próprio em `BrasilValueConverters`. Duas idiomas convivendo: tipo do produto usa Vogen, tipo da lib usa o conversor da lib |
 | Id gerado no domínio | `Guid.CreateVersion7()` na factory + `ValueGeneratedNever()` | Ordenável por tempo, não vaza volume, e não depende de default do banco |
 | Coleção de filhos por campo privado | `HasMany<T>("_items")` + `Navigation("_items").UsePropertyAccessMode(Field)` | O agregado controla a coleção; a convenção do EF não descobre campo privado sozinha |
 

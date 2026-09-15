@@ -22,9 +22,10 @@ primeiro, padrão por camada depois.
 3. **Versão de pacote não vai no `.csproj`.** Central Package Management está ligado: `<PackageReference
    Include="X" />` sem `Version`, e a versão entra em `Directory.Packages.props`. Pacote novo é
    decisão, não detalhe — justifique antes de adicionar.
-4. **Uma implementação, um lugar.** Antes de criar helper, extensão ou abstração, procure o que já
-   existe: `Web/Extensions/ResultExtensions.cs`, `UseCases/PagedResult.cs`, `UseCases/Constants.cs`,
-   `Infrastructure/Data/EfRepository.cs`, `Core/Interfaces/`.
+4. **Uma implementação, um lugar.** Antes de criar helper, extensão ou abstração, procure primeiro
+   na lib — `ResultExtensions`, `ApiProblem`, `PagedResult`, `PageRequest`, `ErrorCodes`,
+   `EfRepository`, `Cnpj`, `StateCode` moram lá — e depois em `Core/Interfaces/` e
+   `Infrastructure/Data/Config/`.
 5. **Migração de banco é arquivo gerado, nunca escrito à mão.** Sempre via `dotnet ef migrations
    add` (comando exato na seção *Comandos*), e sempre revisada antes de aceitar.
 6. **A base vem da lib, nunca reescrita aqui.** Entidade, evento de domínio, repositório, CQRS,
@@ -121,7 +122,11 @@ seria a segunda fonte da mesma verdade. Factory **não recebe `TimeProvider`** s
 o interceptor de auditoria faz isso. `TimeProvider` só entra quando a data é fato de negócio
 (`CollectedAt`, `StartedAt`, `CalculatedAt`).
 
-**Value object e Id** — `Vogen`, com validação no próprio tipo. A configuração global do Vogen
+**Documento e localidade brasileiros vêm da lib.** `Cnpj` (numérico **e** alfanumérico) e
+`StateCode` (as 27 UFs) estão em `LicitaEdital.BuildingBlocks.Brasil` — não reimplemente, e ponha lá
+o próximo do mesmo tipo (CPF, CEP, inscrição estadual).
+
+**Value object e Id do produto** — `Vogen`, com validação no próprio tipo. A configuração global do Vogen
 (`[assembly: VogenDefaults]`) mora em `Core/VogenConfiguration.cs`; não a duplique. Todo id declara
 `IGuidId<TSelf>`, que é o contrato pelo qual a base gera o valor:
 
@@ -193,9 +198,12 @@ em [`docs/modelagem-dados.md`](docs/modelagem-dados.md).
   sem o filtro, um contexto aplicaria a configuração dos outros cinco.
 - Mapeamento em `Data/<Modulo>/Config/<Entidade>Configuration.cs` (`IEntityTypeConfiguration<T>`) —
   **nunca** por atributo na entidade, que sujaria o `Core`.
-- Todo value object mapeado precisa do conversor declarado em `Data/Config/VogenEfCoreConverters.cs`
-  (`[EfCoreConverter<T>]`) e de `.HasVogenConversion()` na propriedade. **Sem a entrada lá, a coluna
-  simplesmente não é gerada — e não há erro de compilação.**
+- Todo value object **do produto** precisa do conversor declarado em
+  `Data/Config/VogenEfCoreConverters.cs` (`[EfCoreConverter<T>]`) e de `.HasVogenConversion()` na
+  propriedade. **Sem a entrada lá, a coluna simplesmente não é gerada — e não há erro de
+  compilação.**
+- Value object **da lib** (`Cnpj`, `StateCode`) não passa pelo Vogen: usa
+  `.HasCnpjConversion()` / `.HasStateCodeConversion()` de `BrasilValueConverters`.
 - **Nada de FK entre schemas.** Referência a outro módulo é o id puro, sem propriedade de navegação.
 - Repositório genérico é `EfRepository<TContext, T>` (**da lib**), e cada agregado é registrado
   **fechado** em `InfrastructureServiceExtensions.AddAggregate<TContext, TAggregate>()`. Agregado

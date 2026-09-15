@@ -22,12 +22,13 @@ namespace LicitaEdital.Infrastructure.Data.Config;
 ///
 /// Fica num arquivo so, e nao um por modulo, porque o Vogen gera uma classe parcial por assembly.
 /// </summary>
+// Cnpj e StateCode NAO entram aqui: sao tipos da lib, escritos a mao, e tem conversor proprio
+// (`HasCnpjConversion` / `HasStateCodeConversion` de BrasilValueConverters).
 // --- identidades compartilhadas ---
 [EfCoreConverter<OrganizationId>]
 [EfCoreConverter<UserId>]
 [EfCoreConverter<OpportunityId>]
 [EfCoreConverter<OfferingId>]
-[EfCoreConverter<StateCode>]
 // --- Identity ---
 [EfCoreConverter<OrganizationName>]
 [EfCoreConverter<MembershipId>]
@@ -36,7 +37,6 @@ namespace LicitaEdital.Infrastructure.Data.Config;
 // --- Companies ---
 [EfCoreConverter<CompanyProfileId>]
 [EfCoreConverter<CompanyName>]
-[EfCoreConverter<Cnpj>]
 // --- Catalog ---
 [EfCoreConverter<OpportunityLineItemId>]
 [EfCoreConverter<OpportunityDocumentId>]

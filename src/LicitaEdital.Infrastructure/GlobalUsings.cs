@@ -2,6 +2,7 @@
 global using System.Reflection;
 global using Ardalis.GuardClauses;
 global using Ardalis.SmartEnum;
+global using LicitaEdital.BuildingBlocks.Brasil;
 global using LicitaEdital.BuildingBlocks.Domain.Entities;
 global using LicitaEdital.BuildingBlocks.Domain.Events;
 global using LicitaEdital.BuildingBlocks.Domain.Repositories;

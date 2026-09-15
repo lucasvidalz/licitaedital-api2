@@ -1,6 +1,5 @@
 ﻿using LicitaEdital.Core.Offerings.OfferingAggregate;
 using LicitaEdital.Core.Shared;
-using LicitaEdital.Infrastructure.Data.Config;
 
 namespace LicitaEdital.Infrastructure.Data.Offerings.Config;
 
@@ -52,7 +51,7 @@ public class OfferingConfiguration : IEntityTypeConfiguration<Offering>
     builder.Property<List<StateCode>>("_servedRegions")
       .HasColumnName("served_regions")
       .HasColumnType("text[]")
-      .HasConversion(CollectionConverters.StateCodeList(), CollectionConverters.StateCodeListComparer())
+      .HasConversion(BrasilValueConverters.StateCodeList(), BrasilValueConverters.StateCodeListComparer())
       .UsePropertyAccessMode(PropertyAccessMode.Field)
       .IsRequired();
 

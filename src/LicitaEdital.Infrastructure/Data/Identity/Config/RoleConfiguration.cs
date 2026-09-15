@@ -1,6 +1,5 @@
 ﻿using LicitaEdital.Core.Identity.MembershipAggregate;
 using LicitaEdital.Core.Identity.RoleAggregate;
-using LicitaEdital.Infrastructure.Data.Config;
 
 namespace LicitaEdital.Infrastructure.Data.Identity.Config;
 
@@ -31,8 +30,8 @@ public class RoleConfiguration : IEntityTypeConfiguration<Role>
       .HasColumnName("permissions")
       .HasColumnType("text[]")
       .HasConversion(
-        CollectionConverters.SmartEnumList<PermissionCode>(),
-        CollectionConverters.SmartEnumListComparer<PermissionCode>())
+        SmartEnumCollectionConverters.SmartEnumList<PermissionCode>(),
+        SmartEnumCollectionConverters.SmartEnumListComparer<PermissionCode>())
       .UsePropertyAccessMode(PropertyAccessMode.Field)
       .IsRequired();
 

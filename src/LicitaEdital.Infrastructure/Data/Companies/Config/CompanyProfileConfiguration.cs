@@ -20,10 +20,11 @@ public class CompanyProfileConfiguration : IEntityTypeConfiguration<CompanyProfi
       .HasMaxLength(CompanyName.MaxLength)
       .IsRequired();
 
+    // varchar(14), nao char(14): o CNPJ alfanumerico continua com 14 posicoes, mas `char` no
+    // PostgreSQL preenche com espaco a direita e compara ignorando esse espaco — semantica
+    // surpreendente num campo que e' chave unica.
     builder.Property(profile => profile.Cnpj)
-      .HasVogenConversion()
-      .HasMaxLength(Cnpj.Length)
-      .IsFixedLength()
+      .HasCnpjConversion()
       .IsRequired();
 
     builder.Property(profile => profile.City)
@@ -31,9 +32,7 @@ public class CompanyProfileConfiguration : IEntityTypeConfiguration<CompanyProfi
       .IsRequired();
 
     builder.Property(profile => profile.State)
-      .HasVogenConversion()
-      .HasMaxLength(StateCode.Length)
-      .IsFixedLength()
+      .HasStateCodeConversion()
       .IsRequired();
 
     builder.Property(profile => profile.BusinessArea)

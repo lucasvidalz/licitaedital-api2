@@ -1,6 +1,5 @@
 ﻿using LicitaEdital.Core.Engagement.AlertPreferencesAggregate;
 using LicitaEdital.Core.Shared;
-using LicitaEdital.Infrastructure.Data.Config;
 
 namespace LicitaEdital.Infrastructure.Data.Engagement.Config;
 
@@ -38,7 +37,7 @@ public class AlertPreferencesConfiguration : IEntityTypeConfiguration<AlertPrefe
     builder.Property<List<StateCode>>("_filterStates")
       .HasColumnName("filter_states")
       .HasColumnType("text[]")
-      .HasConversion(CollectionConverters.StateCodeList(), CollectionConverters.StateCodeListComparer())
+      .HasConversion(BrasilValueConverters.StateCodeList(), BrasilValueConverters.StateCodeListComparer())
       .UsePropertyAccessMode(PropertyAccessMode.Field)
       .IsRequired();
 

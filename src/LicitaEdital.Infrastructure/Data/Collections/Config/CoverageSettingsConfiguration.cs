@@ -1,6 +1,5 @@
 ﻿using LicitaEdital.Core.Collections.CoverageSettingsAggregate;
 using LicitaEdital.Core.Shared;
-using LicitaEdital.Infrastructure.Data.Config;
 
 namespace LicitaEdital.Infrastructure.Data.Collections.Config;
 
@@ -17,7 +16,7 @@ public class CoverageSettingsConfiguration : IEntityTypeConfiguration<CoverageSe
     builder.Property<List<StateCode>>("_attendedStates")
       .HasColumnName("attended_states")
       .HasColumnType("text[]")
-      .HasConversion(CollectionConverters.StateCodeList(), CollectionConverters.StateCodeListComparer())
+      .HasConversion(BrasilValueConverters.StateCodeList(), BrasilValueConverters.StateCodeListComparer())
       .UsePropertyAccessMode(PropertyAccessMode.Field)
       .IsRequired();
 
