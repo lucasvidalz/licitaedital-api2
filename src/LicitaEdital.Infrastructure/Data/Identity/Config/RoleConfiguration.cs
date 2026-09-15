@@ -35,6 +35,12 @@ public class RoleConfiguration : IEntityTypeConfiguration<Role>
       .UsePropertyAccessMode(PropertyAccessMode.Field)
       .IsRequired();
 
+    // `Permissions` e' projecao de leitura sobre o campo `_permissions`, ja mapeado acima como
+    // `text[]`. Sem este Ignore, a convencao do EF ve uma colecao de **classe** e tenta mapear
+    // `PermissionCode` como entidade propria — com tabela, chave e construtor que ele nao consegue
+    // vincular. O SmartEnum nao e' entidade; e' valor.
+    builder.Ignore(role => role.Permissions);
+
     builder.HasIndex(role => role.Name).IsUnique().ActiveOnly();
 
     builder.UseXminConcurrencyToken();

@@ -9,6 +9,13 @@ public class OpportunityConfiguration : IEntityTypeConfiguration<Opportunity>
   {
     builder.ToTable("opportunities");
 
+    // Antes de qualquer mapeamento: `Items` e `Documents` sao projecoes de leitura sobre os campos
+    // `_items` e `_documents`, que sao as navegacoes de verdade (declaradas mais abaixo). Sem este
+    // Ignore a convencao descobre a propriedade publica primeiro, prende o campo a ela, e o
+    // `HasMany("_items")` seguinte falha com "field is already used by".
+    builder.Ignore(opportunity => opportunity.Items);
+    builder.Ignore(opportunity => opportunity.Documents);
+
     builder.Property(opportunity => opportunity.Id)
       .HasVogenConversion()
       .ValueGeneratedNever();

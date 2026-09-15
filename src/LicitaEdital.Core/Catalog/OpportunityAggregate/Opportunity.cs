@@ -17,6 +17,27 @@ public class Opportunity : AggregateRoot<OpportunityId>
   private readonly List<OpportunityLineItem> _items = [];
   private readonly List<OpportunityDocument> _documents = [];
 
+  /// <summary>
+  /// Construtor do EF Core. Ele materializa por construtor quando consegue vincular **todos** os
+  /// parametros a propriedades mapeadas — e nao consegue vincular `modality`, porque owned type nao
+  /// entra por parametro. Sem este construtor, o modelo nem chega a ser construido.
+  ///
+  /// Os `null!` sao preenchidos pelo EF logo em seguida, por reflexao. Nenhum caminho da aplicacao
+  /// passa por aqui: quem cria licitacao e' <see cref="Publish"/>.
+  /// </summary>
+  private Opportunity()
+  {
+    Source = null!;
+    ExternalReference = null!;
+    Title = null!;
+    Object = null!;
+    BuyerName = null!;
+    City = null!;
+    Modality = null!;
+    Status = null!;
+    OfficialUrl = null!;
+  }
+
   private Opportunity(string source, string externalReference, string title, string @object,
     string buyerName, StateCode state, string city, Modality modality, OpportunityStatus status,
     string officialUrl)

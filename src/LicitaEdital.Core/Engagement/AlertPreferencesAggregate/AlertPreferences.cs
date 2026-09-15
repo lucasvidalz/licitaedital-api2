@@ -15,6 +15,17 @@ public class AlertPreferences : AggregateRoot<AlertPreferencesId>, ITenantScoped
   private readonly List<StateCode> _filterStates = [];
   private readonly List<string> _filterModalities = [];
 
+  /// <summary>
+  /// Construtor do EF Core — `types` e' owned type e nao entra por parametro. Ver a nota equivalente
+  /// em <see cref="LicitaEdital.Core.Catalog.OpportunityAggregate.Opportunity"/>.
+  /// </summary>
+  private AlertPreferences()
+  {
+    Types = null!;
+    Frequency = null!;
+    FilterValueRange = null!;
+  }
+
   private AlertPreferences(OrganizationId organizationId, AlertTypes types, AlertFrequency frequency,
     ValueRange filterValueRange)
   {
