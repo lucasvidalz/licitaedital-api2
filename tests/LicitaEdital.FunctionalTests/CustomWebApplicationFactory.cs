@@ -1,10 +1,6 @@
-﻿using LicitaEdital.Infrastructure;
-using LicitaEdital.Infrastructure.Data.Catalog;
-using LicitaEdital.Infrastructure.Data.Collections;
-using LicitaEdital.Infrastructure.Data.Companies;
-using LicitaEdital.Infrastructure.Data.Engagement;
-using LicitaEdital.Infrastructure.Data.Identity;
-using LicitaEdital.Infrastructure.Data.Offerings;
+﻿using LicitaEdital.BuildingBlocks.Persistence;
+using LicitaEdital.Infrastructure;
+using LicitaEdital.Web.Configurations;
 using Testcontainers.PostgreSql;
 
 namespace LicitaEdital.FunctionalTests;
@@ -44,12 +40,10 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
     {
       // Migracao, e nao EnsureCreated: o teste funcional precisa exercitar o mesmo caminho que o
       // deploy. Um schema criado por atalho passaria com migracao quebrada.
-      services.GetRequiredService<IdentityDbContext>().Database.Migrate();
-      services.GetRequiredService<CompaniesDbContext>().Database.Migrate();
-      services.GetRequiredService<CatalogDbContext>().Database.Migrate();
-      services.GetRequiredService<OfferingsDbContext>().Database.Migrate();
-      services.GetRequiredService<EngagementDbContext>().Database.Migrate();
-      services.GetRequiredService<CollectionsDbContext>().Database.Migrate();
+      //
+      // A lista de contextos e' **a mesma** que a inicializacao do app usa: antes as seis linhas
+      // estavam duplicadas aqui e la, e um contexto novo exigia lembrar dos dois lugares.
+      services.MigrateAll(MiddlewareConfig.ModuleContexts);
 
       // Semente especifica de cada teste entra no proprio teste ou numa fixture dele — nunca aqui.
     }

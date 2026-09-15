@@ -1,16 +1,25 @@
-﻿using LicitaEdital.Web.Configurations;
+﻿using LicitaEdital.BuildingBlocks.Web.Defaults;
+using LicitaEdital.BuildingBlocks.Web.Logging;
+using LicitaEdital.Web.Configurations;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddServiceDefaults()    // This sets up OpenTelemetry logging
-       .AddLoggerConfigs();     // This adds Serilog for console formatting
+builder.AddServiceDefaults()             // OpenTelemetry, health checks e service discovery
+       .AddBuildingBlocksLogging();      // Serilog no console, ao lado do OTel
 
 using var loggerFactory = LoggerFactory.Create(config => config.AddConsole());
 var startupLogger = loggerFactory.CreateLogger<Program>();
-
 startupLogger.LogInformation("Starting web host");
 
-builder.Services.AddOptionConfigs(builder.Configuration, startupLogger, builder);
+// O que este app **escolhe**: quais modulos, quais assemblies e como se identifica. Fica visivel
+// aqui de proposito — o que a lib absorveu foi o mecanismo, nao a decisao.
+builder.Services.AddBuildingBlocksWeb(new BuildingBlocksWebOptions
+{
+  IsDevelopment = builder.Environment.IsDevelopment(),
+  CorsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? []
+});
+
+builder.Services.AddRateLimitPolicies();
 builder.Services.AddServiceConfigs(startupLogger, builder);
 
 builder.Services.AddFastEndpoints()
@@ -29,9 +38,9 @@ var app = builder.Build();
 
 await app.UseAppMiddleware();
 
-app.MapDefaultEndpoints(); // Aspire health checks and metrics
+app.MapDefaultEndpoints(); // health checks e metricas do Aspire
 
 app.Run();
 
-// Make the implicit Program.cs class public, so integration tests can reference the correct assembly for host building
+// Torna a classe Program publica para os testes funcionais referenciarem o assembly correto.
 public partial class Program { }

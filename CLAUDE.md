@@ -319,8 +319,17 @@ public class Create(IMediator mediator)
   `ToUpdateResult`, `ToDeleteResult`, `ToOkOnlyResult`. Faltou um caso? Adicione lá, não no endpoint.
 - **`AllowAnonymous()` é decisão de segurança explícita.** Endpoint novo nasce autenticado; abrir
   exige motivo escrito no `Configure()`.
-- Registro de serviço vai em `Configurations/` (`ServiceConfigs`, `OptionConfigs`, `MediatorConfig`,
-  `MiddlewareConfig`, `LoggerConfigs`). **`Program.cs` só compõe** — não ganha `AddScoped`.
+- **O que é mecanismo vem da lib; o que é escolha deste produto fica visível aqui.** Pipeline
+  ordenado, cabeçalhos de segurança, CORS, logging e o runner de migração são
+  `UseBuildingBlocksWeb` / `AddBuildingBlocksWeb` / `AddBuildingBlocksLogging` / `MigrateAllAsync`.
+  O que sobra em `Configurations/` é decisão: `ServiceConfigs` (quais módulos), `MediatorConfig`
+  (quais assemblies), `MiddlewareConfig` (ordem dos contextos a migrar e as ferramentas de dev) e
+  `RateLimitConfigs`.
+- **`Program.cs` só compõe** — não ganha `AddScoped`.
+- **Rate limiting é registrado aqui, não na lib**, e não por preferência: `AddRateLimiter` não é
+  alcançável de uma class library com `FrameworkReference Microsoft.AspNetCore.App` nesta
+  instalação do SDK. O nome da política vem da lib (`RateLimiterPolicies.Sensitive`), que é o que
+  impede registro e endpoint divergirem.
 - Endpoint **não fala com repositório nem com `DbContext`**: só com `IMediator`.
 
 ---

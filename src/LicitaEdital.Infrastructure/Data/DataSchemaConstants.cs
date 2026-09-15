@@ -13,8 +13,12 @@ public static class DataSchemaConstants
   public const string EngagementSchema = "engagement";
   public const string CollectionsSchema = "collections";
 
-  /// <summary>Tabela de historico de migracao, replicada em cada schema de modulo.</summary>
-  public const string MigrationsHistoryTable = "__ef_migrations_history";
+  /// <summary>
+  /// Tabela de historico de migracao, replicada em cada schema de modulo. Reexportada de
+  /// <see cref="LicitaEdital.BuildingBlocks.Persistence.PersistenceDefaults"/> para quem configura
+  /// um modulo achar tudo num lugar so.
+  /// </summary>
+  public const string MigrationsHistoryTable = PersistenceDefaults.MigrationsHistoryTable;
 
   public const int DefaultNameLength = 200;
   public const int DefaultCodeLength = 40;

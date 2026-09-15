@@ -1,4 +1,6 @@
 ﻿using Ardalis.ListStartupServices;
+using LicitaEdital.BuildingBlocks.Persistence;
+using LicitaEdital.BuildingBlocks.Web.Defaults;
 using LicitaEdital.Infrastructure.Data.Catalog;
 using LicitaEdital.Infrastructure.Data.Collections;
 using LicitaEdital.Infrastructure.Data.Companies;
@@ -11,39 +13,41 @@ namespace LicitaEdital.Web.Configurations;
 
 public static class MiddlewareConfig
 {
+  /// <summary>
+  /// Contextos de modulo, na ordem em que sao migrados. Identity primeiro por convencao — nao ha
+  /// dependencia entre schemas, mas uma ordem fixa torna o log de inicializacao comparavel entre
+  /// execucoes.
+  /// </summary>
+  public static readonly IReadOnlyList<Type> ModuleContexts =
+  [
+    typeof(IdentityDbContext),
+    typeof(CompaniesDbContext),
+    typeof(CatalogDbContext),
+    typeof(OfferingsDbContext),
+    typeof(EngagementDbContext),
+    typeof(CollectionsDbContext)
+  ];
+
   public static async Task<IApplicationBuilder> UseAppMiddleware(this WebApplication app)
   {
-    if (app.Environment.IsDevelopment())
-    {
-      app.UseDeveloperExceptionPage();
-      app.UseShowAllServicesMiddleware(); // see https://github.com/ardalis/AspNetCoreStartupServices
-    }
-    else
-    {
-      app.UseDefaultExceptionHandler(); // from FastEndpoints
-      app.UseHsts();
-    }
-
-    app.UseCorrelationId();
-
-    // Ordem obrigatoria do ASP.NET Core: autenticacao resolve quem e', autorizacao decide o que
-    // pode, e so depois o endpoint roda. Inverter faz todo `[Authorize]` passar batido.
-    app.UseAuthentication();
-    app.UseAuthorization();
+    // Middlewares transversais, na ordem que importa: excecao, cabecalhos de seguranca, correlacao,
+    // HTTPS, CORS, autenticacao e autorizacao. A ordem e' da lib, e nao configuravel — errar nela e
+    // silencioso.
+    app.UseBuildingBlocksWeb();
+    app.UseRateLimiter();
 
     app.UseFastEndpoints();
 
     if (app.Environment.IsDevelopment())
     {
-      app.UseSwaggerGen(options =>
-      {
-        options.Path = "/openapi/{documentName}.json";
-      },
-      settings =>
-      {
-        settings.Path = "/swagger";
-        settings.DocumentPath = "/openapi/{documentName}.json";
-      });
+      app.UseShowAllServicesMiddleware(); // https://github.com/ardalis/AspNetCoreStartupServices
+
+      app.UseSwaggerGen(options => options.Path = "/openapi/{documentName}.json",
+        settings =>
+        {
+          settings.Path = "/swagger";
+          settings.DocumentPath = "/openapi/{documentName}.json";
+        });
 
       app.MapScalarApiReference(options =>
       {
@@ -52,51 +56,16 @@ public static class MiddlewareConfig
       });
     }
 
-    app.UseHttpsRedirection(); // Note this will drop Authorization headers
-
     var shouldMigrate = app.Environment.IsDevelopment() ||
                         app.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup");
 
     if (shouldMigrate)
     {
-      await MigrateDatabaseAsync(app);
+      // O laco dos seis contextos vive na lib: ele era identico aqui e na fixture de teste
+      // funcional, e um contexto novo exigia lembrar de acrescentar nos dois lugares.
+      await app.Services.MigrateAllAsync(ModuleContexts);
     }
 
     return app;
-  }
-
-  /// <summary>
-  /// Migra os seis contextos de modulo, em ordem fixa. Cada um tem sua propria tabela de historico
-  /// no seu schema (D-01), entao as migracoes sao independentes — o que falha aqui e' o modulo, nao
-  /// a base inteira.
-  ///
-  /// Nao ha caminho `EnsureCreated`: com PostgreSQL em todo ambiente, inclusive local via Aspire,
-  /// criar o schema por atalho em desenvolvimento produziria uma base que **nao** corresponde as
-  /// migracoes aplicadas em producao — o erro aparece so no deploy.
-  /// </summary>
-  private static async Task MigrateDatabaseAsync(WebApplication app)
-  {
-    using var scope = app.Services.CreateScope();
-    var services = scope.ServiceProvider;
-    var logger = services.GetRequiredService<ILogger<Program>>();
-
-    try
-    {
-      logger.LogInformation("Applying database migrations...");
-
-      await services.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
-      await services.GetRequiredService<CompaniesDbContext>().Database.MigrateAsync();
-      await services.GetRequiredService<CatalogDbContext>().Database.MigrateAsync();
-      await services.GetRequiredService<OfferingsDbContext>().Database.MigrateAsync();
-      await services.GetRequiredService<EngagementDbContext>().Database.MigrateAsync();
-      await services.GetRequiredService<CollectionsDbContext>().Database.MigrateAsync();
-
-      logger.LogInformation("Database migrations applied successfully");
-    }
-    catch (Exception ex)
-    {
-      logger.LogError(ex, "An error occurred migrating the DB. {exceptionMessage}", ex.Message);
-      throw; // Re-throw to make startup fail if migrations fail
-    }
   }
 }

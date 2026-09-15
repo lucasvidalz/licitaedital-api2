@@ -1,7 +1,7 @@
 ﻿namespace LicitaEdital.Infrastructure.Data.Offerings;
 
-/// <summary>Factory de design-time do modulo Offerings. Ver <see cref="ModuleDbContextFactory{TContext}"/>.</summary>
-public class OfferingsDbContextFactory : ModuleDbContextFactory<OfferingsDbContext>
+/// <summary>Factory de design-time do modulo Offerings.</summary>
+public class OfferingsDbContextFactory : NpgsqlModuleDbContextFactory<OfferingsDbContext>
 {
   protected override string Schema => DataSchemaConstants.OfferingsSchema;
 }
