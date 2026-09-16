@@ -23,6 +23,7 @@ public class Get : EndpointWithoutRequest<Ok<HealthResponse>>
   public override void Configure()
   {
     base.Get(HealthResponse.Route);
+    RoutePrefixOverride(string.Empty); // fora do `/api`: ver MiddlewareConfig
     AllowAnonymous();
     Tags("Health");
     Summary(s =>

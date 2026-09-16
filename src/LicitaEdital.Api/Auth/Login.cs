@@ -42,7 +42,7 @@ public class Login(IMediator mediator)
     if (!result.IsSuccess) return TypedResults.Unauthorized();
 
     var user = result.Value;
-    await HttpContext.SignInAsync(SessionPrincipal.Create(
+    await HttpContext.SignInSessionAsync(SessionPrincipal.Create(
       user.Id, user.Email, user.DisplayName, TenantOf(user), user.Area, user.Permissions));
 
     return TypedResults.Ok(AuthUserResponse.From(user));

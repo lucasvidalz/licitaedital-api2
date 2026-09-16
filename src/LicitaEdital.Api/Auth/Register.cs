@@ -45,7 +45,7 @@ public class Register(IMediator mediator)
     }
 
     var user = result.Value;
-    await HttpContext.SignInAsync(SessionPrincipal.Create(
+    await HttpContext.SignInSessionAsync(SessionPrincipal.Create(
       user.Id, user.Email, user.DisplayName, user.TenantId, user.Area, user.Permissions));
 
     return TypedResults.Ok(AuthUserResponse.From(user));

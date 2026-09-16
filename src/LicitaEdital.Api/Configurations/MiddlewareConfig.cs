@@ -36,7 +36,14 @@ public static class MiddlewareConfig
     app.UseBuildingBlocksWeb();
     app.UseRateLimiter();
 
-    app.UseFastEndpoints();
+    app.UseFastEndpoints(endpoints =>
+    {
+      // Prefixo `/api` em tudo. E' o que o frontend ja declara (`apiBaseUrl` termina em `/api`) e
+      // o que separa a API do que um dia for servido na raiz do mesmo host — SPA, estatico, proxy.
+      // `/health` fica de fora por `RoutePrefixOverride(string.Empty)`: probe de orquestrador aponta
+      // para caminho fixo, e mudar o caminho do health check e' mudar a configuracao de quem monitora.
+      endpoints.Endpoints.RoutePrefix = "api";
+    });
 
     if (app.Environment.IsDevelopment())
     {

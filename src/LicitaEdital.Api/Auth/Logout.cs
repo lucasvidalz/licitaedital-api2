@@ -26,7 +26,7 @@ public class Logout : EndpointWithoutRequest<NoContent>
 
   public override async Task<NoContent> ExecuteAsync(CancellationToken cancellationToken)
   {
-    await HttpContext.SignOutAsync();
+    await HttpContext.SignOutSessionAsync();
     return TypedResults.NoContent();
   }
 }

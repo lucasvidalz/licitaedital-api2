@@ -15,10 +15,10 @@ literal do contrato. O padrão de implementação está em [`../CLAUDE.md`](../C
 
 | Item | Valor | Onde |
 | --- | --- | --- |
-| Base URL em dev | `http://localhost:8080/api` | `frontend/src/environments/environment.development.ts:5` |
+| Base URL em dev | `/api`, encaminhado para `http://localhost:8080` pelo `proxy.conf.json` do `ng serve` | `frontend/src/environments/environment.development.ts`, `frontend/proxy.conf.json` |
 | Base URL em homolog/prod | `/api` (mesmo host, atrás de proxy) | `environment.homolog.ts:5`, `environment.production.ts:5` |
 | Sessão | **cookie**, `withCredentials: true` em toda chamada | `core/http/interceptors/credentials.interceptor.ts` |
-| CSRF | cookie `XSRF-TOKEN` → header `X-XSRF-TOKEN` | `app.config.ts:36-39` |
+| CSRF | cookie `XSRF-TOKEN` → header `X-XSRF-TOKEN`. **Só sai em URL de mesma origem** — por isso o dev usa proxy e não URL absoluta (`xsrfInterceptorFn` do Angular) | `app.config.ts:36-39` |
 | Correlação | header `X-Correlation-ID` (UUID por request) | `core/http/interceptors/correlation-id.interceptor.ts:7` |
 | Idioma | `Accept-Language: pt-BR` | `core/http/interceptors/request-context.interceptor.ts` |
 | 401 | limpa sessão e redireciona para `/login` — em **qualquer** rota, não só `/auth/me` | `core/http/interceptors/error.interceptor.ts:39-45` |
@@ -177,12 +177,22 @@ a API aplica migração numa base vazia e `GET /api/health` responde 200 com o c
 
 ---
 
-## 4. Fase 1 — Autenticação
+## 4. Fase 1 — Autenticação ✅
 
 Fecha `FEAT-12.1`..`FEAT-12.8` e os 9 `AUTH-NN` de backend. Requisito completo em
 `licitaledital-api`: `docs/features/auth.md`.
 
-**Endpoints:** 1 a 7 da tabela.
+**Endpoints:** 1 a 7 da tabela — **os 7 no ar**, em `src/LicitaEdital.Api/Auth/`, e o frontend
+conectado: o `authBypassEnabled` saiu do Angular (critério de sucesso do `AD-014`) e a sessão passa a
+vir sempre de `GET /api/auth/me`.
+
+**O que ficou em aberto nesta fase**, e está registrado como tal:
+
+- `forgot-password` ainda tem diferença de tempo mensurável (~2 ms) entre e-mail existente e
+  inexistente, vinda da geração do token. Fechar exige enfileirar o envio — item 1 abaixo.
+- O `XSRF-TOKEN` é emitido e **validado nas escritas que carregam cookie de sessão**. Escrita sem
+  sessão (login, cadastro, recuperação) não exige token: não há sessão para cavalgar, e o cookie de
+  sessão é `SameSite=Lax`, que já barra POST cross-site.
 
 **Domínio:** `User` (e-mail, hash, displayName, área, status), `Organization`, `Membership`,
 `Permission`. `AuthUser.permissions` é resolvido da role, **nunca aceito do cliente** (SEC-08).
