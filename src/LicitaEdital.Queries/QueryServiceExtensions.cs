@@ -1,7 +1,11 @@
 ﻿using Ardalis.GuardClauses;
 using LicitaEdital.Queries.Catalog;
+using LicitaEdital.Queries.Companies;
+using LicitaEdital.Queries.Offerings;
 using LicitaEdital.Queries.Identity;
 using LicitaEdital.Queries.Contracts.Catalog;
+using LicitaEdital.Queries.Contracts.Companies;
+using LicitaEdital.Queries.Contracts.Offerings;
 using LicitaEdital.Queries.Contracts.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,10 +36,14 @@ public static class QueryServiceExtensions
     services.AddDbContext<CatalogReadContext>(options => options.UseNpgsql(connectionString));
 
     services.AddDbContext<IdentityReadContext>(options => options.UseNpgsql(connectionString));
+    services.AddDbContext<CompaniesReadContext>(options => options.UseNpgsql(connectionString));
+    services.AddDbContext<OfferingsReadContext>(options => options.UseNpgsql(connectionString));
 
     services.AddScoped<IListOpportunitiesQueryService, ListOpportunitiesQueryService>();
     services.AddScoped<IAuthenticatedUserReader, AuthenticatedUserReader>();
     services.AddScoped<IUsersQueryService, UsersQueryService>();
+    services.AddScoped<ICompanyProfileQueryService, CompanyProfileQueryService>();
+    services.AddScoped<IOfferingsQueryService, OfferingsQueryService>();
 
     return services;
   }

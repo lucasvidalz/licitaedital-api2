@@ -68,7 +68,7 @@ public class Offering : AggregateRoot<OfferingId>, ITenantScoped
     Replace(_negativeKeywords, negativeKeywords);
     Replace(_synonyms, synonyms);
     Replace(_catalogCodes, catalogCodes);
-    RegisterDomainEvent(new OfferingChangedEvent(Id, OrganizationId));
+    MarkChanged();
     return this;
   }
 
@@ -79,7 +79,7 @@ public class Offering : AggregateRoot<OfferingId>, ITenantScoped
     _servedRegions.AddRange(servedRegions.Distinct());
     MinValueCents = minValueCents;
     MaxValueCents = maxValueCents;
-    RegisterDomainEvent(new OfferingChangedEvent(Id, OrganizationId));
+    MarkChanged();
     return this;
   }
 
@@ -89,8 +89,25 @@ public class Offering : AggregateRoot<OfferingId>, ITenantScoped
     Name = name;
     Description = description;
     SupplyType = supplyType;
-    RegisterDomainEvent(new OfferingChangedEvent(Id, OrganizationId));
+    MarkChanged();
     return this;
+  }
+
+  /// <summary>
+  /// Registra <see cref="OfferingChangedEvent"/> **uma vez por unidade de trabalho**.
+  ///
+  /// <para>
+  /// Gravar uma oferta chama os tres mutadores em sequencia (`Update`, `SetTerms`, `SetCoverage`), e
+  /// registrar em cada um produziria tres eventos identicos — e tres recalculos de compatibilidade
+  /// para a mesma mudanca. A igualdade de record nao resolve: `DomainEvent` carrega `EventId` proprio,
+  /// entao duas instancias nunca sao iguais. A checagem aqui e' por tipo, que e' o que importa: o
+  /// fato "esta oferta mudou" e' um so, independentemente de quantos campos mudaram.
+  /// </para>
+  /// </summary>
+  private void MarkChanged()
+  {
+    if (DomainEvents.OfType<OfferingChangedEvent>().Any()) return;
+    RegisterDomainEvent(new OfferingChangedEvent(Id, OrganizationId));
   }
 
   private static void Replace(List<string> target, IEnumerable<string> values)

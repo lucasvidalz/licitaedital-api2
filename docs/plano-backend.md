@@ -247,9 +247,11 @@ para o lado estreito mostra linhas de menos, errar para o largo expõe a base de
 
 ---
 
-## 6. Fase 3 — Empresa e ofertas
+## 6. Fase 3 — Empresa e ofertas ✅
 
-**Endpoints:** 12 a 16.
+**Endpoints:** 12 a 16 — **os 5 no ar**, em `src/LicitaEdital.Api/CompanyProfile/` e
+`src/LicitaEdital.Api/Offerings/`. As fixtures das duas telas foram apagadas, e os dois pares de
+`fileReplacements` saíram da configuração `fixtures` do `angular.json`.
 
 - `GET /company-profile` devolve **404 quando ainda não há cadastro** — o frontend trata isso como
   sucesso com dado `null` e abre formulário vazio (`AD-032`). Não é erro, não logue como erro.
@@ -257,6 +259,25 @@ para o lado estreito mostra linhas de menos, errar para o largo expõe a base de
 - `Offering` tem `positiveKeywords`, `negativeKeywords`, `synonyms`, `catalogCodes`,
   `servedRegions` — todos `text[]`, e são a **entrada do motor de compatibilidade** da Fase 4.
 - `supplyType` é `product | service | both`: SmartEnum no domínio, string no contrato.
+
+### Duas unicidades que o índice sozinho não resolvia
+
+`ux_company_profiles_cnpj` (CNPJ único na plataforma) e `ux_offerings_organization_name` (nome único
+por organização) protegem o dado, mas violá-los produz exceção — **500**, não um erro que o
+formulário saiba mostrar. Os dois casos passaram a ser conferidos antes da gravação e voltam como
+erro de campo (`cnpj`, `name`). A corrida continua coberta pelo índice: dois envios simultâneos ainda
+esbarram nele, e aí o 500 é a resposta honesta para um caso raro.
+
+A mensagem do CNPJ **não diz qual conta o usa**, nem confirma que ela existe — senão o cadastro
+viraria um verificador de quais CNPJs já estão na base.
+
+### Um evento por unidade de trabalho
+
+Gravar uma oferta chama os três mutadores em sequência (`Update`, `SetTerms`, `SetCoverage`), e cada
+um registrava `OfferingChangedEvent` — três eventos idênticos, três recálculos de compatibilidade
+para a mesma mudança. A igualdade de record não resolve: `DomainEvent` carrega `EventId` próprio,
+então duas instâncias nunca são iguais. `Offering.MarkChanged()` agora registra no máximo um por
+unidade de trabalho, checando por tipo. O fato "esta oferta mudou" é um só.
 
 ---
 
