@@ -1,6 +1,6 @@
 ﻿using LicitaEdital.Domain.Catalog.OpportunityAggregate;
 
-namespace LicitaEdital.Queries.Contracts.Catalog;
+namespace LicitaEdital.Application.Catalog.Opportunities.List;
 
 /// <summary>Feed de oportunidades da organizacao da sessao.</summary>
 public sealed record ListOpportunitiesQuery(

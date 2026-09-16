@@ -1,6 +1,6 @@
 ﻿using LicitaEdital.Facade.Identity;
 
-namespace LicitaEdital.Queries.Contracts.Identity.ResetPassword;
+namespace LicitaEdital.Application.Identity.ResetPassword;
 
 /// <summary>
 /// Redefine a senha a partir do token do link (`AUTH-07`).

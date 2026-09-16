@@ -214,19 +214,36 @@ identificação funcionam contra a API real. É o critério de sucesso de `AD-01
 
 ---
 
-## 5. Fase 2 — Organização, usuários e área GFE
+## 5. Fase 2 — Organização, usuários e área GFE ✅
 
-**Endpoints:** 8 a 11.
+**Endpoints:** 8 a 11 — **os 4 no ar**, em `src/LicitaEdital.Api/Users/`. O frontend já os chamava:
+`gfe/users` nunca teve fixture, então não houve mock para apagar.
 
 **Domínio:** membership por organização, ativação/desativação, role e permissão efetiva.
 
-`UserApiItem` carrega `lastLoginAt` e `companyName` opcionais — dois campos que só existem se a
-Fase 1 registrar login e a Fase 3 vincular empresa. Enquanto não existirem, devolva `null`
-explicitamente, não omita o campo.
+`lastLoginAt` e `companyName` **saem preenchidos**, não nulos. O primeiro exigiu fechar um buraco da
+Fase 1: `RegisterSuccessfulLoginAsync` só zerava o contador de falhas do Identity e nunca carimbava
+`Membership.LastLoginAt`, então a tela mostraria "Nunca" para todo mundo, para sempre. Login e
+cadastro agora carimbam o vínculo. O segundo é o nome da organização do vínculo.
 
-**Isolamento multi-tenant entra pra valer aqui:** toda query filtra `OrganizationId` de forma
-explícita; global query filter é camada adicional, não a principal (spec §16). Recurso de outro
-tenant retorna **404**, não 403.
+**Isolamento multi-tenant:** `UsersQueryService.Rows(organizationId)` é o ponto único onde ele é
+aplicado, e os dois métodos públicos exigem a organização na assinatura — não existe caminho para
+consultar sem ela. Usuário de outra organização responde **404**, não 403 (verificado).
+
+### A decisão de escopo que esta fase teve de tomar
+
+`GET /users` lista os usuários **da organização da sessão**, não de todos os clientes da plataforma.
+As specs do frontend nunca resolveram isso (`sdd-bootstrap/context.md`: "`gfe/users` aponta para
+`/api/users`, que não existe. Nunca rodou contra API real"), e as duas leituras dão telas diferentes:
+o gerenciador pertence à organização da plataforma, então escopo por tenant mostra o time interno, e
+escopo global mostraria os usuários de todos os clientes.
+
+Ficou o escopo por tenant, por três motivos: é o que esta seção do plano já mandava, é o que o índice
+`ix_memberships_organization_status` foi criado para servir, e a assimetria de risco é clara — errar
+para o lado estreito mostra linhas de menos, errar para o largo expõe a base de um cliente a outro.
+
+**Se a intenção for gerenciar clientes entre empresas**, a mudança é o filtro de
+`UsersQueryService.Rows` e mais nada — mas é decisão de produto, e precisa ser registrada como tal.
 
 ---
 

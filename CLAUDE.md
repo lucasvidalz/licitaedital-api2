@@ -343,8 +343,27 @@ public class Create(IMediator mediator)
   o que reduz conflito de merge.
 - **Não converta `Result` na mão.** Use `ResultExtensions`: `ToCreatedResult`, `ToGetByIdResult`,
   `ToUpdateResult`, `ToDeleteResult`, `ToOkOnlyResult`. Faltou um caso? Adicione lá, não no endpoint.
+  `Result.Conflict` sai como **409** (pedido bem formado, estado atual recusa), não 400.
 - **`AllowAnonymous()` é decisão de segurança explícita.** Endpoint novo nasce autenticado; abrir
   exige motivo escrito no `Configure()`.
+- **Autorização vai em `Policies(...)` dentro do `Configure()`, nunca em atributo.** O FastEndpoints
+  monta a segurança do endpoint a partir do `Configure()` e **ignora** `[Authorize]` e derivados na
+  classe — sem erro e sem aviso. `[RequireArea]`/`[RequirePermission]` da lib valem para Minimal API
+  e Controllers; aqui eles são decorativos, e um endpoint marcado com eles responde **200 para quem
+  não tem a permissão**. A forma correta:
+
+  ```csharp
+  Policies(AuthorizationPolicies.Area(UserArea.Codes.Manager),
+           AuthorizationPolicies.Permission(PermissionCode.Codes.UsersRead));
+  ```
+
+  Área **e** permissão quando ambas se aplicam: a área diz de qual metade do produto a sessão veio,
+  a permissão diz o que ela pode ali dentro. O nome da policy sai de `AuthorizationPolicies`, e as
+  constantes saem de `UserArea.Codes` / `PermissionCode.Codes` — atributo e policy precisam de
+  constante em tempo de compilação, e um literal digitado à mão erra sem quebrar a compilação.
+- **POST sem corpo usa `EndpointWithoutRequest` + `Route<Guid>("id")`.** Com `Endpoint<TRequest>` o
+  FastEndpoints exige corpo JSON num POST e responde **415** antes do handler — o endpoint fica
+  inalcançável por um POST vazio (`/users/{id}/activate` é exatamente esse caso).
 - **O que é mecanismo vem da lib; o que é escolha deste produto fica visível aqui.** Pipeline
   ordenado, cabeçalhos de segurança, CORS, logging e o runner de migração são
   `UseBuildingBlocksWeb` / `AddBuildingBlocksWeb` / `AddBuildingBlocksLogging` / `MigrateAllAsync`.

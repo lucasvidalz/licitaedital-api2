@@ -1,6 +1,6 @@
 ﻿using LicitaEdital.BuildingBlocks.Auth;
 using LicitaEdital.BuildingBlocks.Web.Defaults;
-using LicitaEdital.Queries.Contracts.Identity.Register;
+using LicitaEdital.Application.Identity.Register;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.RateLimiting;
 

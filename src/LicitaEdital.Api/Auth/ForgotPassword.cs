@@ -1,5 +1,5 @@
 ﻿using LicitaEdital.BuildingBlocks.Web.Defaults;
-using LicitaEdital.Queries.Contracts.Identity.ForgotPassword;
+using LicitaEdital.Application.Identity.ForgotPassword;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.RateLimiting;
 

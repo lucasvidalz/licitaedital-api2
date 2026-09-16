@@ -1,7 +1,7 @@
 ﻿using LicitaEdital.BuildingBlocks.Domain.Execution;
 using LicitaEdital.Facade.Shared;
 
-namespace LicitaEdital.Queries.Contracts.Catalog;
+namespace LicitaEdital.Application.Catalog.Opportunities.List;
 
 /// <summary>
 /// O handler existe mesmo a consulta sendo um repasse, e a razao e' uma so: **e' aqui que o tenant

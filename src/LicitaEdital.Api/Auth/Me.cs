@@ -1,4 +1,4 @@
-﻿using LicitaEdital.Queries.Contracts.Identity.Me;
+﻿using LicitaEdital.Application.Identity.Me;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LicitaEdital.Api.Auth;

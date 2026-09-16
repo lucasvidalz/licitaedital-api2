@@ -1,6 +1,6 @@
 ﻿using LicitaEdital.Facade.Identity;
 
-namespace LicitaEdital.Queries.Contracts.Identity.ConfirmEmail;
+namespace LicitaEdital.Application.Identity.ConfirmEmail;
 
 /// <summary>
 /// Confirma o e-mail pelo token do link (`AUTH-08`). Nao autentica: quem chega aqui pode estar num

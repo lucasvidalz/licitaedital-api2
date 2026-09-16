@@ -1,6 +1,6 @@
 ﻿using LicitaEdital.Facade.Identity;
 
-namespace LicitaEdital.Queries.Contracts.Identity.ForgotPassword;
+namespace LicitaEdital.Application.Identity.ForgotPassword;
 
 /// <summary>
 /// Envia o link de redefinicao — e **nunca revela se o e-mail existe** (`FEAT-12.3`, `AUTH-06`).

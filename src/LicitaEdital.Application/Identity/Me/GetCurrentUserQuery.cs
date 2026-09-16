@@ -1,3 +1,3 @@
-﻿namespace LicitaEdital.Queries.Contracts.Identity.Me;
+﻿namespace LicitaEdital.Application.Identity.Me;
 
 public sealed record GetCurrentUserQuery : IQuery<Result<AuthenticatedUserDto>>;

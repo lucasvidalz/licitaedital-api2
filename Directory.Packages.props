@@ -8,13 +8,13 @@
     <!-- Lib proprietaria, do feed local. Substitui o Ardalis.SharedKernel: entidade, evento,
          repositorio e despachante passam a ser nossos, porque e la que entram UUID v7
          automatico, auditoria, soft delete e tenant. -->
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Brasil" Version="0.8.3" />
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Domain" Version="0.8.3" />
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Integration" Version="0.8.3" />
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Application" Version="0.8.3" />
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Auth" Version="0.8.3" />
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Persistence" Version="0.8.3" />
-    <PackageVersion Include="LicitaEdital.BuildingBlocks.Web" Version="0.8.3" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Brasil" Version="0.8.6" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Domain" Version="0.8.6" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Integration" Version="0.8.6" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Application" Version="0.8.6" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Auth" Version="0.8.6" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Persistence" Version="0.8.6" />
+    <PackageVersion Include="LicitaEdital.BuildingBlocks.Web" Version="0.8.6" />
     <PackageVersion Include="Ardalis.SmartEnum" Version="8.2.0" />
     <PackageVersion Include="Ardalis.Specification" Version="9.3.1" />
     <PackageVersion Include="Ardalis.Specification.EntityFrameworkCore" Version="9.3.1" />

@@ -1,5 +1,5 @@
 ﻿using LicitaEdital.BuildingBlocks.Web.Defaults;
-using LicitaEdital.Queries.Contracts.Identity.ConfirmEmail;
+using LicitaEdital.Application.Identity.ConfirmEmail;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.RateLimiting;
 

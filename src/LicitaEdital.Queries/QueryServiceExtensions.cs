@@ -35,6 +35,7 @@ public static class QueryServiceExtensions
 
     services.AddScoped<IListOpportunitiesQueryService, ListOpportunitiesQueryService>();
     services.AddScoped<IAuthenticatedUserReader, AuthenticatedUserReader>();
+    services.AddScoped<IUsersQueryService, UsersQueryService>();
 
     return services;
   }

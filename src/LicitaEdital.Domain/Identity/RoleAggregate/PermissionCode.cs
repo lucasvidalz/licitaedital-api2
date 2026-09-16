@@ -11,12 +11,27 @@
 /// </summary>
 public sealed class PermissionCode : SmartEnum<PermissionCode, string>
 {
+  /// <summary>
+  /// Os mesmos codigos, como constantes, para <c>[RequirePermission]</c> — atributo so aceita
+  /// constante em tempo de compilacao, e <c>PermissionCode.UsersRead.Value</c> nao e' uma. Ficam
+  /// aqui, ao lado da unica definicao de cada codigo, para que nao existam duas listas: uma
+  /// divergencia entre elas nao daria erro de compilacao, daria um endpoint que ninguem alcanca.
+  /// </summary>
+  public static class Codes
+  {
+    public const string UsersRead = "users.read";
+    public const string UsersWrite = "users.write";
+    public const string CollectionsRead = "collections.read";
+    public const string ParticipationOperationsRead = "participation-operations.read";
+    public const string ParticipationPortalsManage = "participation-portals.manage";
+  }
+
   // --- em uso pelo frontend hoje ---
-  public static readonly PermissionCode UsersRead = new(nameof(UsersRead), "users.read");
-  public static readonly PermissionCode UsersWrite = new(nameof(UsersWrite), "users.write");
-  public static readonly PermissionCode CollectionsRead = new(nameof(CollectionsRead), "collections.read");
-  public static readonly PermissionCode ParticipationOperationsRead = new(nameof(ParticipationOperationsRead), "participation-operations.read");
-  public static readonly PermissionCode ParticipationPortalsManage = new(nameof(ParticipationPortalsManage), "participation-portals.manage");
+  public static readonly PermissionCode UsersRead = new(nameof(UsersRead), Codes.UsersRead);
+  public static readonly PermissionCode UsersWrite = new(nameof(UsersWrite), Codes.UsersWrite);
+  public static readonly PermissionCode CollectionsRead = new(nameof(CollectionsRead), Codes.CollectionsRead);
+  public static readonly PermissionCode ParticipationOperationsRead = new(nameof(ParticipationOperationsRead), Codes.ParticipationOperationsRead);
+  public static readonly PermissionCode ParticipationPortalsManage = new(nameof(ParticipationPortalsManage), Codes.ParticipationPortalsManage);
 
   // --- previstas pela spec de participacao assistida (§16), sem tela ainda ---
   public static readonly PermissionCode ParticipationsRead = new(nameof(ParticipationsRead), "participations.read");

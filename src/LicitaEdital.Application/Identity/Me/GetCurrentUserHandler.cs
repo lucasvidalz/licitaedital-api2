@@ -1,7 +1,7 @@
 ﻿using LicitaEdital.BuildingBlocks.Domain.Execution;
 using LicitaEdital.Facade.Shared;
 
-namespace LicitaEdital.Queries.Contracts.Identity.Me;
+namespace LicitaEdital.Application.Identity.Me;
 
 /// <summary>
 /// Resolve a sessao no boot do frontend (`AUTH-10`).

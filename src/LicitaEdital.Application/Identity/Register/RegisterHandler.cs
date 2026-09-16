@@ -4,7 +4,7 @@ using LicitaEdital.Domain.Identity.OrganizationAggregate;
 using LicitaEdital.Domain.Identity.RoleAggregate;
 using LicitaEdital.Domain.Identity.RoleAggregate.Specifications;
 
-namespace LicitaEdital.Queries.Contracts.Identity.Register;
+namespace LicitaEdital.Application.Identity.Register;
 
 /// <summary>
 /// Cria conta, organizacao e vinculo, e **autentica na hora** — sem exigir confirmacao de e-mail.
@@ -23,7 +23,8 @@ public class RegisterHandler(
   IRepository<Organization> organizations,
   IRepository<Membership> memberships,
   IReadRepository<Role> roles,
-  IAuthenticatedUserReader reader)
+  IAuthenticatedUserReader reader,
+  TimeProvider clock)
   : ICommandHandler<RegisterCommand, Result<AuthenticatedUserDto>>
 {
   private readonly IUserAccountService _accounts = accounts;
@@ -32,6 +33,7 @@ public class RegisterHandler(
   private readonly IRepository<Membership> _memberships = memberships;
   private readonly IReadRepository<Role> _roles = roles;
   private readonly IAuthenticatedUserReader _reader = reader;
+  private readonly TimeProvider _clock = clock;
 
   public async ValueTask<Result<AuthenticatedUserDto>> Handle(RegisterCommand command,
     CancellationToken cancellationToken)
@@ -56,6 +58,10 @@ public class RegisterHandler(
 
     var membership = Membership.Create(organization.Id, created.Value.Id, UserArea.Client,
       clientRole.Id);
+
+    // O cadastro **abre sessao** (`FEAT-12.2`), entao ja e' um acesso. Sem este carimbo, a tela de
+    // gerenciamento mostraria "Nunca" para quem esta usando o produto naquele instante.
+    membership.RegisterLogin(_clock);
     await _memberships.AddAsync(membership, cancellationToken);
 
     // Disparo-e-esquece: a confirmacao nao bloqueia o cadastro, entao esperar pelo SMTP so' faria o
