@@ -4,6 +4,7 @@ using LicitaEdital.Data;
 using LicitaEdital.Data.Identity;
 using LicitaEdital.Providers;
 using LicitaEdital.Queries;
+using LicitaEdital.Tasks;
 using Microsoft.AspNetCore.Identity;
 
 namespace LicitaEdital.Api.Configurations;
@@ -36,10 +37,11 @@ public static class ServiceConfigs
       .AddDataServices(config, logger) // escrita: contextos de modulo e repositorios
       .AddQueryServices(config)        // leitura: contextos sem rastreamento
       .AddProviders(config)            // integracoes com sistema externo
+      .AddTasks()                      // reacao: o que roda depois do fato, por evento de dominio
       .AddMediatorSourceGen(logger);
 
     logger.LogInformation("{Project} services registered",
-      "BuildingBlocks, Data, Queries, Providers e Mediator");
+      "BuildingBlocks, Data, Queries, Providers, Tasks e Mediator");
 
     return services;
   }

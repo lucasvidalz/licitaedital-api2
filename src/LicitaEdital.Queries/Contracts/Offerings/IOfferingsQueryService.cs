@@ -15,4 +15,17 @@ public interface IOfferingsQueryService
 
   Task<OfferingDto?> FindAsync(OrganizationId organizationId, OfferingId offeringId,
     CancellationToken cancellationToken = default);
+
+  /// <summary>
+  /// As organizacoes que tem pelo menos uma oferta cadastrada.
+  ///
+  /// <para>
+  /// Existe para o recalculo de compatibilidade: quando uma licitacao muda, o score de **todas** as
+  /// organizacoes com oferta ficou obsoleto, e quem sabe quais sao elas e' o modulo Offerings.
+  /// Perguntar aqui e' o que evita o recalculo ter que alcancar o schema `offerings` por join —
+  /// proibido pela spec §4.
+  /// </para>
+  /// </summary>
+  Task<IReadOnlyList<OrganizationId>> ListOrganizationsWithOfferingsAsync(
+    CancellationToken cancellationToken = default);
 }

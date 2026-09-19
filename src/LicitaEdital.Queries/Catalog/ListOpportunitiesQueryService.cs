@@ -1,12 +1,11 @@
-﻿using LicitaEdital.Domain.Catalog.CompatibilityAggregate;
 using LicitaEdital.Domain.Catalog.OpportunityAggregate;
 using LicitaEdital.Queries.Contracts.Catalog;
 
 namespace LicitaEdital.Queries.Catalog;
 
 /// <summary>
-/// A consulta do feed. Filtra, ordena, pagina e junta a compatibilidade da organizacao numa ida so
-/// ao banco.
+/// A consulta do feed. Filtra, ordena e pagina no banco, sobre a projecao
+/// <see cref="OpportunityFeedRow"/>.
 /// </summary>
 public class ListOpportunitiesQueryService(CatalogReadContext context) : IListOpportunitiesQueryService
 {
@@ -19,15 +18,7 @@ public class ListOpportunitiesQueryService(CatalogReadContext context) : IListOp
     PageRequest page,
     CancellationToken cancellationToken = default)
   {
-    // LEFT JOIN com a projecao de compatibilidade **da organizacao pedida**. O filtro por
-    // organizacao vai na condicao do join, nao num WHERE depois: num WHERE, a linha sem
-    // compatibilidade viraria NULL e seria descartada, e o feed sumiria inteiro para quem ainda nao
-    // cadastrou oferta.
-    var rows = from opportunity in _context.Opportunities
-               join candidate in _context.Compatibilities.Where(c => c.OrganizationId == organizationId)
-                 on opportunity.Id equals candidate.OpportunityId into matches
-               from compatibility in matches.DefaultIfEmpty()
-               select new Row(opportunity, compatibility);
+    var rows = Feed(organizationId);
 
     rows = ApplyFilter(rows, filter);
     rows = ApplySort(rows, sort);
@@ -37,93 +28,127 @@ public class ListOpportunitiesQueryService(CatalogReadContext context) : IListOp
     return pageResult.Map(ToDto);
   }
 
-  private static IQueryable<Row> ApplyFilter(IQueryable<Row> rows, ListOpportunitiesFilter filter)
+  /// <summary>
+  /// Licitacao com a compatibilidade **da organizacao pedida**, por LEFT JOIN.
+  ///
+  /// <para>
+  /// A organizacao entra na **condicao do JOIN**, e nao num <c>WHERE</c>: num <c>WHERE</c> a
+  /// licitacao sem compatibilidade viraria nulo e seria descartada, e o feed sumiria inteiro para
+  /// quem ainda nao cadastrou oferta.
+  /// </para>
+  ///
+  /// <para>
+  /// <c>is_active</c> repete o que o filtro global faria numa entidade com chave — entidade sem
+  /// chave nao recebe filtro de consulta. A compatibilidade nao tem <c>is_active</c>: e' projecao
+  /// sem exclusao logica, por desenho.
+  /// </para>
+  ///
+  /// <para>
+  /// A interpolacao e' de <c>FromSql</c>, nao de string: o EF converte cada <c>{}</c> em parametro
+  /// do comando. Nao troque por <c>FromSqlRaw</c> com concatenacao.
+  /// </para>
+  /// </summary>
+  private IQueryable<OpportunityFeedRow> Feed(OrganizationId organizationId)
+    => _context.Feed.FromSql($"""
+      SELECT o.id                               AS id,
+             o.title                            AS title,
+             o.object                           AS object,
+             o.buyer_name                       AS buyer_name,
+             o.state                            AS state,
+             o.city                             AS city,
+             o.city_ibge_code                   AS city_ibge_code,
+             o.modality_code                    AS modality_code,
+             o.modality_label                   AS modality_label,
+             o.status                           AS status,
+             o.estimated_value_cents            AS estimated_value_cents,
+             o.published_at                     AS published_at,
+             o.proposal_deadline                AS proposal_deadline,
+             o.official_url                     AS official_url,
+             o.source                           AS source,
+             o.collected_at                     AS collected_at,
+             c.score                            AS score,
+             c.offering_id                      AS offering_id,
+             COALESCE(c.matched_terms,    ARRAY[]::text[]) AS matched_terms,
+             COALESCE(c.positive_reasons, ARRAY[]::text[]) AS positive_reasons,
+             COALESCE(c.attention_points, ARRAY[]::text[]) AS attention_points
+        FROM catalog.opportunities o
+        LEFT JOIN catalog.opportunity_compatibilities c
+               ON c.opportunity_id = o.id
+              AND c.organization_id = {organizationId.Value}
+       WHERE o.is_active
+      """);
+
+  private static IQueryable<OpportunityFeedRow> ApplyFilter(IQueryable<OpportunityFeedRow> rows,
+    ListOpportunitiesFilter filter)
   {
     // ILIKE, e nao ToLower().Contains(): `LOWER(coluna) LIKE ...` cega qualquer indice comum da
     // coluna. Com volume real, o caminho daqui e' um indice GIN de trigrama sobre title/object.
     rows = rows.WhereIf(!string.IsNullOrWhiteSpace(filter.Search),
-      row => EF.Functions.ILike(row.Opportunity.Title, $"%{filter.Search}%")
-          || EF.Functions.ILike(row.Opportunity.Object, $"%{filter.Search}%"));
+      row => EF.Functions.ILike(row.Title, $"%{filter.Search}%")
+          || EF.Functions.ILike(row.Object, $"%{filter.Search}%"));
 
-    rows = rows.WhereIf(filter.States.Count > 0,
-      row => filter.States.Contains(row.Opportunity.State.Value));
+    rows = rows.WhereIf(filter.States.Count > 0, row => filter.States.Contains(row.State));
 
     // Compara o **codigo** da modalidade, nunca o rotulo — AD-030 do frontend nasceu exatamente de
     // comparar rotulo contra codigo.
     rows = rows.WhereIf(filter.Modalities.Count > 0,
-      row => filter.Modalities.Contains(row.Opportunity.Modality.Code));
+      row => filter.Modalities.Contains(row.ModalityCode));
 
     // Licitacao sem valor estimado publicado **passa** pelo filtro de faixa: excluí-la esconderia
     // oportunidade real por ausencia de um dado que o orgao nao e' obrigado a publicar.
     rows = rows.WhereIf(filter.MinValueCents is not null,
-      row => row.Opportunity.EstimatedValueCents == null
-          || row.Opportunity.EstimatedValueCents >= filter.MinValueCents);
+      row => row.EstimatedValueCents == null || row.EstimatedValueCents >= filter.MinValueCents);
 
     rows = rows.WhereIf(filter.MaxValueCents is not null,
-      row => row.Opportunity.EstimatedValueCents == null
-          || row.Opportunity.EstimatedValueCents <= filter.MaxValueCents);
+      row => row.EstimatedValueCents == null || row.EstimatedValueCents <= filter.MaxValueCents);
 
     return rows;
   }
 
   /// <summary>
-  /// O `OrderBy(x => x.Campo == null)` antes do criterio real produz `ORDER BY (coluna IS NULL),
-  /// coluna` — e' o jeito portavel de conseguir `NULLS LAST`. Sem ele, no PostgreSQL um `DESC`
-  /// coloca NULL **primeiro**, e o feed abriria com as licitacoes sem nota no topo.
+  /// O <c>OrderBy(x =&gt; x.Campo == null)</c> antes do criterio real produz
+  /// <c>ORDER BY (coluna IS NULL), coluna</c> — e' o jeito portavel de conseguir <c>NULLS LAST</c>.
+  /// Sem ele, no PostgreSQL um <c>DESC</c> coloca NULL **primeiro**, e o feed abriria com as
+  /// licitacoes sem nota no topo.
   /// </summary>
-  private static IQueryable<Row> ApplySort(IQueryable<Row> rows, OpportunitySort sort)
+  private static IQueryable<OpportunityFeedRow> ApplySort(IQueryable<OpportunityFeedRow> rows,
+    OpportunitySort sort)
   {
-    if (sort == OpportunitySort.Score)
-    {
-      return rows
-        .OrderBy(row => row.Compatibility == null)
-        .ThenByDescending(row => row.Compatibility!.Score)
-        .ThenByDescending(row => row.Opportunity.PublishedAt);
-    }
-
     if (sort == OpportunitySort.Deadline)
     {
       return rows
-        .OrderBy(row => row.Opportunity.ProposalDeadline == null)
-        .ThenBy(row => row.Opportunity.ProposalDeadline);
+        .OrderBy(row => row.ProposalDeadline == null)
+        .ThenBy(row => row.ProposalDeadline)
+        .ThenByDescending(row => row.PublishedAt);
     }
 
-    return rows.OrderByDescending(row => row.Opportunity.PublishedAt);
+    if (sort == OpportunitySort.PublishedAt)
+    {
+      return rows.OrderByDescending(row => row.PublishedAt).ThenByDescending(row => row.Id);
+    }
+
+    return rows
+      .OrderBy(row => row.Score == null)
+      .ThenByDescending(row => row.Score)
+      .ThenByDescending(row => row.PublishedAt);
   }
 
-  private static OpportunityListItemDto ToDto(Row row) => new(
-    row.Opportunity.Id.Value,
-    row.Opportunity.Title,
-    row.Opportunity.Object,
-    row.Opportunity.BuyerName,
-    row.Opportunity.State.Value,
-    row.Opportunity.City,
-    row.Opportunity.CityIbgeCode,
-    new ModalityDto(row.Opportunity.Modality.Code, row.Opportunity.Modality.Label),
-    row.Opportunity.Status.Value,
-    row.Opportunity.EstimatedValueCents,
-    row.Opportunity.PublishedAt,
-    row.Opportunity.ProposalDeadline,
-    row.Opportunity.OfficialUrl,
-    row.Opportunity.Source,
-    row.Opportunity.CollectedAt,
-    ToCompatibilityDto(row.Compatibility));
-
-  private static CompatibilityDto ToCompatibilityDto(OpportunityCompatibility? compatibility)
-    => compatibility is null
-      ? new CompatibilityDto(null, null, [], [], [])
-      : new CompatibilityDto(
-          compatibility.Score?.Value,
-          compatibility.OfferingId?.Value,
-          [.. compatibility.MatchedTerms],
-          [.. compatibility.PositiveReasons],
-          [.. compatibility.AttentionPoints]);
-
-  /// <summary>
-  /// Linha intermediaria da consulta. Carrega as **entidades**, e nao colunas soltas, de proposito:
-  /// projetar value object do Vogen dentro de um `Select` traduzido para SQL e' terreno movedico no
-  /// EF. O custo e' trazer a linha inteira de `opportunities` — que a tela usa quase por completo,
-  /// e cujas colecoes (itens, documentos) estao em outras tabelas e nao vem junto.
-  /// </summary>
-  private sealed record Row(Opportunity Opportunity, OpportunityCompatibility? Compatibility);
+  private static OpportunityListItemDto ToDto(OpportunityFeedRow row) => new(
+    row.Id,
+    row.Title,
+    row.Object,
+    row.BuyerName,
+    row.State,
+    row.City,
+    row.CityIbgeCode,
+    new ModalityDto(row.ModalityCode, row.ModalityLabel),
+    row.Status,
+    row.EstimatedValueCents,
+    row.PublishedAt,
+    row.ProposalDeadline,
+    row.OfficialUrl,
+    row.Source,
+    row.CollectedAt,
+    new CompatibilityDto(row.Score, row.OfferingId, row.MatchedTerms, row.PositiveReasons,
+      row.AttentionPoints));
 }

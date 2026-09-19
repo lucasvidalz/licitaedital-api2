@@ -29,6 +29,19 @@ public class OfferingsQueryService(OfferingsReadContext context) : IOfferingsQue
     return offering is null ? null : ToDto(offering);
   }
 
+  public async Task<IReadOnlyList<OrganizationId>> ListOrganizationsWithOfferingsAsync(
+    CancellationToken cancellationToken = default)
+  {
+    // `Distinct` no banco, e nao em memoria: sao milhares de ofertas para dezenas de organizacoes, e
+    // trazer todas para contar as distintas seria pagar a listagem inteira por uma lista curta.
+    var ids = await _context.Offerings
+      .Select(offering => offering.OrganizationId)
+      .Distinct()
+      .ToListAsync(cancellationToken);
+
+    return ids;
+  }
+
   /// <summary>
   /// A consulta base, com o filtro de organizacao dentro. Ponto unico do isolamento entre clientes
   /// nesta tela — a spec §16 trata filtro global como camada adicional, nunca como a principal.

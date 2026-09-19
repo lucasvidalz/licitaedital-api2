@@ -281,11 +281,69 @@ unidade de trabalho, checando por tipo. O fato "esta oferta mudou" é um só.
 
 ---
 
-## 7. Fase 4 — Oportunidades e compatibilidade
+## 7. Fase 4 — Oportunidades e compatibilidade ✅
 
 O coração do produto.
 
-**Endpoints:** 17 e 18.
+**Endpoints:** 17 e 18 — **os 2 no ar**, em `src/LicitaEdital.Api/Opportunities/`. Os dois pares de
+`fileReplacements` das telas de oportunidade saíram do `angular.json`; as fixtures **continuam no
+repositório** porque `saved-opportunities` e `participations` ainda as consomem como fonte de dado —
+elas saem quando essas fases forem conectadas.
+
+### O bug que esta fase desenterrou: nenhum evento de domínio jamais rodou
+
+`MediatorConfig` restringia a varredura do gerador a uma lista de assemblies — e a lista **omitia
+`LicitaEdital.Domain`**, que é onde os eventos são declarados. O `switch` gerado em `Publish` nascia
+vazio: todo evento de domínio publicado desde o início do projeto caía no nada, **sem erro e sem
+aviso**. Comandos e consultas funcionavam porque moram em `Application`, que estava na lista.
+
+A lista foi removida. Vazia, o gerador varre todos os assemblies alcançáveis por referência, que é o
+que este produto quer — e é o default documentado. A lista não comprava nada e custava exatamente
+este tipo de falha silenciosa.
+
+### O motor de compatibilidade (D-07)
+
+`CompatibilityEngine`, em `Domain/Catalog/CompatibilityAggregate/`: função pura, sem estado e sem
+I/O. Recebe dois retratos (`OpportunityProfile`, `OfferingProfile`) e devolve o veredito.
+
+A nota é **soma de pontos ganhos**, não subtração de penalidades — a diferença importa na leitura,
+porque cada parcela tem um motivo escrito em `positiveReasons`. Os pesos somam 100:
+
+| Parcela | Peso | Regra |
+| --- | --- | --- |
+| Cobertura de termos | 50 | proporção dos termos positivos presentes; sinônimo vale metade |
+| Código de catálogo | 25 | CATMAT/CATSER da oferta consta em item publicado |
+| Região | 15 | UF da licitação entre as atendidas — **lista vazia = sem restrição, ganha os pontos** |
+| Faixa de valor | 10 | valor estimado dentro da faixa — **licitação sem valor publicado ganha os pontos** |
+
+Duas regras que não são de pontuação:
+
+1. **Termo negativo elimina**, mesmo com termo positivo presente. Quem cadastrou "usado" está dizendo
+   que aquela licitação não interessa; nota alta com ressalva no rodapé seria ignorada na prática.
+2. **Nenhum sinal positivo ⇒ a oferta não se aplica**, e não "nota zero". Zero afirmaria "avaliei e
+   não serve"; o que houve foi "não há o que avaliar". Sem nenhuma oferta aplicável a licitação fica
+   `unrated`, que é o estado honesto.
+
+Estar fora da região **não elimina**: entrega remota, representante local e consórcio são comuns, e
+esconder a licitação decidiria pelo cliente algo que só ele sabe. Vira ressalva em `attentionPoints`.
+
+**Onde roda:** `CompatibilityRecalculator`, em Tasks, disparado pelos dois eventos de domínio. Lê as
+ofertas pelo contrato de leitura do módulo Offerings, nunca pelo schema dele — a junção entre os dois
+módulos acontece em memória, respeitando a §4. O recálculo roda **dentro da requisição**; o limite e a
+condição para movê-lo para uma fila estão escritos na própria classe.
+
+### Três limitações do EF que moldaram o lado de leitura
+
+O EF Core **não compara duas colunas com value converter entre si**. Como todos os ids são value
+objects do Vogen, qualquer `join` entre tabelas falha em tempo de **execução** com "could not be
+translated" — e isso vale para as três formas de escrever a junção (`join ... into`, `SelectMany` com
+`DefaultIfEmpty`, subconsulta correlacionada). Por isso o feed é um read model sobre SQL escrito à mão
+(`OpportunityFeedRow`), como este plano já previa, e a listagem de usuários também
+(`UserDirectoryRow`).
+
+E `Include(o => o.Items)` não funciona quando a propriedade é projeção de leitura sobre um campo: a
+navegação real é `_items`, e o `Include` precisa ser pelo nome do campo. A forma com lambda compila e
+quebra em runtime.
 
 **Domínio:** `Opportunity` (agregado), `OpportunityLineItem`, `OpportunityDocument`,
 `Modality` (código + rótulo), `OpportunityStatus`

@@ -40,6 +40,7 @@ public static class QueryServiceExtensions
     services.AddDbContext<OfferingsReadContext>(options => options.UseNpgsql(connectionString));
 
     services.AddScoped<IListOpportunitiesQueryService, ListOpportunitiesQueryService>();
+    services.AddScoped<IOpportunityDetailsQueryService, OpportunityDetailsQueryService>();
     services.AddScoped<IAuthenticatedUserReader, AuthenticatedUserReader>();
     services.AddScoped<IUsersQueryService, UsersQueryService>();
     services.AddScoped<ICompanyProfileQueryService, CompanyProfileQueryService>();

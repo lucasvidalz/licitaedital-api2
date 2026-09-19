@@ -22,9 +22,54 @@ public class CatalogReadContext(DbContextOptions<CatalogReadContext> options)
   public DbSet<Opportunity> Opportunities => Set<Opportunity>();
   public DbSet<OpportunityCompatibility> Compatibilities => Set<OpportunityCompatibility>();
 
+  /// <summary>
+  /// O feed, com licitacao e compatibilidade ja juntas. Ver <see cref="OpportunityFeedRow"/> para o
+  /// porque de ser SQL e nao LINQ.
+  ///
+  /// <b>Sem filtro de organizacao aqui</b>: quem consulta o aplica, onde ele fica visivel
+  /// (<c>ListOpportunitiesQueryService</c>). O SQL recebe a organizacao como parametro porque ela
+  /// entra na condicao do LEFT JOIN, e nao num WHERE — num WHERE, a licitacao sem nota sumiria.
+  /// </summary>
+  public DbSet<OpportunityFeedRow> Feed => Set<OpportunityFeedRow>();
+
   protected override string Schema => DataSchemaConstants.CatalogSchema;
 
   protected override string ConfigurationNamespace => typeof(CatalogDbContext).Namespace + ".Config";
 
   protected override Assembly ConfigurationAssembly => typeof(CatalogDbContext).Assembly;
+
+  protected override void OnModelCreating(ModelBuilder modelBuilder)
+  {
+    base.OnModelCreating(modelBuilder);
+
+    modelBuilder.Entity<OpportunityFeedRow>(row =>
+    {
+      // `ToView(null)`: o tipo nao tem tabela nem visao propria — ele so' existe como resultado do
+      // SQL que `ListOpportunitiesQueryService` executa por `FromSql`. Sem isto o EF exigiria uma
+      // tabela chamada `OpportunityFeedRow`, que nao existe.
+      row.HasNoKey().ToView(null);
+      row.Property(feed => feed.Id).HasColumnName("id");
+      row.Property(feed => feed.Title).HasColumnName("title");
+      row.Property(feed => feed.Object).HasColumnName("object");
+      row.Property(feed => feed.BuyerName).HasColumnName("buyer_name");
+      row.Property(feed => feed.State).HasColumnName("state");
+      row.Property(feed => feed.City).HasColumnName("city");
+      row.Property(feed => feed.CityIbgeCode).HasColumnName("city_ibge_code");
+      row.Property(feed => feed.ModalityCode).HasColumnName("modality_code");
+      row.Property(feed => feed.ModalityLabel).HasColumnName("modality_label");
+      row.Property(feed => feed.Status).HasColumnName("status");
+      row.Property(feed => feed.EstimatedValueCents).HasColumnName("estimated_value_cents");
+      row.Property(feed => feed.PublishedAt).HasColumnName("published_at");
+      row.Property(feed => feed.ProposalDeadline).HasColumnName("proposal_deadline");
+      row.Property(feed => feed.OfficialUrl).HasColumnName("official_url");
+      row.Property(feed => feed.Source).HasColumnName("source");
+      row.Property(feed => feed.CollectedAt).HasColumnName("collected_at");
+      row.Property(feed => feed.Score).HasColumnName("score");
+      row.Property(feed => feed.OfferingId).HasColumnName("offering_id");
+      row.Property(feed => feed.MatchedTerms).HasColumnName("matched_terms").HasColumnType("text[]");
+      row.Property(feed => feed.PositiveReasons).HasColumnName("positive_reasons").HasColumnType("text[]");
+      row.Property(feed => feed.AttentionPoints).HasColumnName("attention_points").HasColumnType("text[]");
+    });
+  }
+
 }
