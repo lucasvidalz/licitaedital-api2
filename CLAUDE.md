@@ -379,6 +379,26 @@ public class Create(IMediator mediator)
 
 ---
 
+### Três armadilhas do EF que já custaram um dia de depuração
+
+Todas falham em **tempo de execução**, nunca de compilação. As três aparecem no módulo Catalog.
+
+1. **Não existe `join` entre colunas com value converter.** Todos os ids são value objects do Vogen,
+   e o EF não compara duas colunas convertidas entre si — `join ... into`, `SelectMany` +
+   `DefaultIfEmpty` e subconsulta correlacionada falham igual, com "could not be translated".
+   Junção entre tabelas ⇒ **read model sobre SQL escrito à mão** (`OpportunityFeedRow`,
+   `UserDirectoryRow`): `HasNoKey().ToView(null)` no contexto de leitura e `FromSql` interpolado no
+   query service. Comparar value object com **parâmetro** continua funcionando normalmente.
+2. **`Include` de coleção com backing field é pelo nome do campo.** `Opportunity.Items` é projeção de
+   leitura (`_items.AsReadOnly()`) e está marcada `Ignore`; a navegação real é `_items`. Um
+   `Include(o => o.Items)` compila e quebra em runtime.
+3. **O gerador do Mediator precisa enxergar o assembly do evento.** `options.Assemblies` fica **vazio**
+   em `MediatorConfig` de propósito: uma lista explícita que esqueça um assembly faz o `switch` gerado
+   nascer sem aquele tipo, e o evento é publicado para zero handler — sem erro e sem aviso. Foi
+   exatamente o que aconteceu com `LicitaEdital.Domain`, e nenhum evento de domínio rodou até a Fase 4.
+
+---
+
 ## Onde validar
 
 Três níveis, com responsabilidades distintas — não duplique, não pule:
