@@ -1,6 +1,5 @@
-﻿using LicitaEdital.Domain.Catalog.CompatibilityAggregate;
+﻿using LicitaEdital.BuildingBlocks.Brasil;
 using LicitaEdital.Facade.Catalog;
-using LicitaEdital.Domain.Catalog.OpportunityAggregate;
 using LicitaEdital.Facade.Shared;
 using LicitaEdital.Queries.Catalog;
 using Microsoft.EntityFrameworkCore;
@@ -29,51 +28,44 @@ public class CatalogFacade(CatalogReadContext context) : ICatalogFacade
   {
     if (opportunityIds.Count == 0) return [];
 
-    var ids = opportunityIds.ToArray();
+    // Reusa a **mesma projecao do feed** (`FeedFor`), em vez de repetir o LEFT JOIN aqui. Alem de
+    // nao duplicar o SQL, e' o que mantem os dois caminhos coerentes: a licitacao salva mostra
+    // exatamente a nota que o feed mostra.
+    //
+    // O `join` em LINQ nao e' opcao: `Opportunity.Id` e `OpportunityCompatibility.OpportunityId` sao
+    // value objects do Vogen, e o EF nao compara duas colunas convertidas entre si — a consulta
+    // quebra em tempo de execucao. Ver a nota no `CLAUDE.md` do backend.
+    var ids = opportunityIds.Select(id => id.Value).ToArray();
 
-    var rows = await (
-      from opportunity in _context.Opportunities
-      where ids.Contains(opportunity.Id)
-      join candidate in _context.Compatibilities.Where(c => c.OrganizationId == organizationId)
-        on opportunity.Id equals candidate.OpportunityId into matches
-      from compatibility in matches.DefaultIfEmpty()
-      select new { opportunity, compatibility })
+    var rows = await _context.FeedFor(organizationId)
+      .Where(row => ids.Contains(row.Id))
       .ToListAsync(cancellationToken);
 
     // A ordem do retorno segue a **da consulta**, nao a dos ids pedidos. Quem precisa de ordem
     // especifica — o feed de salvas ordena por data de salvamento — reordena do seu lado, que e'
     // onde o criterio existe.
-    return [.. rows.Select(row => ToSummary(row.opportunity, row.compatibility))];
+    return [.. rows.Select(ToSummary)];
   }
 
-  private static OpportunitySummary ToSummary(Opportunity opportunity,
-    OpportunityCompatibility? compatibility)
-    => new(
-      opportunity.Id,
-      opportunity.Title,
-      opportunity.Object,
-      opportunity.BuyerName,
-      opportunity.State,
-      opportunity.City,
-      opportunity.CityIbgeCode,
-      opportunity.Modality.Code,
-      opportunity.Modality.Label,
-      opportunity.Status.Value,
-      opportunity.EstimatedValueCents,
-      opportunity.PublishedAt,
-      opportunity.ProposalDeadline,
-      opportunity.OfficialUrl,
-      opportunity.Source,
-      opportunity.CollectedAt,
-      ToCompatibility(compatibility));
-
-  private static CompatibilitySummary ToCompatibility(OpportunityCompatibility? compatibility)
-    => compatibility is null
+  private static OpportunitySummary ToSummary(OpportunityFeedRow row) => new(
+    OpportunityId.From(row.Id),
+    row.Title,
+    row.Object,
+    row.BuyerName,
+    StateCode.Parse(row.State),
+    row.City,
+    row.CityIbgeCode,
+    row.ModalityCode,
+    row.ModalityLabel,
+    row.Status,
+    row.EstimatedValueCents,
+    row.PublishedAt,
+    row.ProposalDeadline,
+    row.OfficialUrl,
+    row.Source,
+    row.CollectedAt,
+    row.Score is null && row.OfferingId is null
       ? CompatibilitySummary.Unrated
-      : new CompatibilitySummary(
-          compatibility.Score?.Value,
-          compatibility.OfferingId,
-          [.. compatibility.MatchedTerms],
-          [.. compatibility.PositiveReasons],
-          [.. compatibility.AttentionPoints]);
+      : new CompatibilitySummary(row.Score, row.OfferingId is { } id ? OfferingId.From(id) : null,
+          row.MatchedTerms, row.PositiveReasons, row.AttentionPoints));
 }

@@ -38,6 +38,63 @@ public class CatalogReadContext(DbContextOptions<CatalogReadContext> options)
 
   protected override Assembly ConfigurationAssembly => typeof(CatalogDbContext).Assembly;
 
+  /// <summary>
+  /// Licitacao com a compatibilidade **da organizacao pedida**, por LEFT JOIN.
+  ///
+  /// <para>
+  /// Fica no contexto, e nao num query service, porque **dois consumidores** compoem sobre ela: o
+  /// feed (`ListOpportunitiesQueryService`) filtra, ordena e pagina; a fachada de modulo
+  /// (`CatalogFacade`) recorta por uma lista de ids. Duplicar o SQL faria os dois divergirem no
+  /// primeiro campo novo.
+  /// </para>
+  ///
+  /// <para>
+  /// A organizacao entra na **condicao do JOIN**, e nao num <c>WHERE</c>: num <c>WHERE</c> a
+  /// licitacao sem compatibilidade viraria nulo e seria descartada, e o feed sumiria inteiro para
+  /// quem ainda nao cadastrou oferta.
+  /// </para>
+  ///
+  /// <para>
+  /// <c>is_active</c> repete o que o filtro global faria numa entidade com chave — entidade sem
+  /// chave nao recebe filtro de consulta. A compatibilidade nao tem <c>is_active</c>: e' projecao
+  /// sem exclusao logica, por desenho.
+  /// </para>
+  ///
+  /// <para>
+  /// A interpolacao e' de <c>FromSql</c>, nao de string: o EF converte cada <c>{}</c> em parametro
+  /// do comando. Nao troque por <c>FromSqlRaw</c> com concatenacao.
+  /// </para>
+  /// </summary>
+  public IQueryable<OpportunityFeedRow> FeedFor(OrganizationId organizationId)
+    => Feed.FromSql($"""
+      SELECT o.id                               AS id,
+             o.title                            AS title,
+             o.object                           AS object,
+             o.buyer_name                       AS buyer_name,
+             o.state                            AS state,
+             o.city                             AS city,
+             o.city_ibge_code                   AS city_ibge_code,
+             o.modality_code                    AS modality_code,
+             o.modality_label                   AS modality_label,
+             o.status                           AS status,
+             o.estimated_value_cents            AS estimated_value_cents,
+             o.published_at                     AS published_at,
+             o.proposal_deadline                AS proposal_deadline,
+             o.official_url                     AS official_url,
+             o.source                           AS source,
+             o.collected_at                     AS collected_at,
+             c.score                            AS score,
+             c.offering_id                      AS offering_id,
+             COALESCE(c.matched_terms,    ARRAY[]::text[]) AS matched_terms,
+             COALESCE(c.positive_reasons, ARRAY[]::text[]) AS positive_reasons,
+             COALESCE(c.attention_points, ARRAY[]::text[]) AS attention_points
+        FROM catalog.opportunities o
+        LEFT JOIN catalog.opportunity_compatibilities c
+               ON c.opportunity_id = o.id
+              AND c.organization_id = {organizationId.Value}
+       WHERE o.is_active
+      """);
+
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
     base.OnModelCreating(modelBuilder);

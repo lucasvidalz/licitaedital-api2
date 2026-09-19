@@ -1,10 +1,14 @@
 ﻿using Ardalis.GuardClauses;
 using LicitaEdital.Queries.Catalog;
+using LicitaEdital.Queries.Collections;
 using LicitaEdital.Queries.Companies;
+using LicitaEdital.Queries.Engagement;
 using LicitaEdital.Queries.Offerings;
 using LicitaEdital.Queries.Identity;
 using LicitaEdital.Queries.Contracts.Catalog;
+using LicitaEdital.Queries.Contracts.Collections;
 using LicitaEdital.Queries.Contracts.Companies;
+using LicitaEdital.Queries.Contracts.Engagement;
 using LicitaEdital.Queries.Contracts.Offerings;
 using LicitaEdital.Queries.Contracts.Identity;
 using Microsoft.Extensions.Configuration;
@@ -38,6 +42,8 @@ public static class QueryServiceExtensions
     services.AddDbContext<IdentityReadContext>(options => options.UseNpgsql(connectionString));
     services.AddDbContext<CompaniesReadContext>(options => options.UseNpgsql(connectionString));
     services.AddDbContext<OfferingsReadContext>(options => options.UseNpgsql(connectionString));
+    services.AddDbContext<EngagementReadContext>(options => options.UseNpgsql(connectionString));
+    services.AddDbContext<CollectionsReadContext>(options => options.UseNpgsql(connectionString));
 
     services.AddScoped<IListOpportunitiesQueryService, ListOpportunitiesQueryService>();
     services.AddScoped<IOpportunityDetailsQueryService, OpportunityDetailsQueryService>();
@@ -45,6 +51,11 @@ public static class QueryServiceExtensions
     services.AddScoped<IUsersQueryService, UsersQueryService>();
     services.AddScoped<ICompanyProfileQueryService, CompanyProfileQueryService>();
     services.AddScoped<IOfferingsQueryService, OfferingsQueryService>();
+    services.AddScoped<ISavedOpportunitiesQueryService, SavedOpportunitiesQueryService>();
+    services.AddScoped<IAlertPreferencesQueryService, AlertPreferencesQueryService>();
+    services.AddScoped<ISubscriptionQueryService, SubscriptionQueryService>();
+    services.AddScoped<ICollectionRunsQueryService, CollectionRunsQueryService>();
+    services.AddScoped<ICoverageSettingsQueryService, CoverageSettingsQueryService>();
 
     return services;
   }

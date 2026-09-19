@@ -360,9 +360,40 @@ com SQL próprio (`IListOpportunitiesQueryService`), fora do repositório genér
 
 ---
 
-## 8. Fase 5 — Salvas, preferências e assinatura
+## 8. Fase 5 — Salvas, preferências e assinatura ✅
 
-**Endpoints:** 19 a 24. Baixo risco, alto ganho de tela.
+**Endpoints:** 19 a 24 — **os 6 no ar**. Com eles, os **24 endpoints do contrato** existem. As
+fixtures das três telas foram apagadas; restam duas `fileReplacements` no `angular.json`
+(`environment` e `collections`, da Fase 6).
+
+### Três ausências, três respostas diferentes — e é de propósito
+
+| Recurso | Sem dado | Por quê |
+| --- | --- | --- |
+| `/settings` | **200 com o padrão do domínio** | a tela de configurações não tem estado "ainda não cadastrado"; ela sempre mostra alguma preferência |
+| `/subscription` | **404** | em que plano a empresa está é fato comercial — afirmar "inicial" sem ninguém ter registrado seria o servidor inventando contrato. O `SubscriptionStore` já trata 404 como dado ausente (`AD-032`) |
+| `/company-profile` | **404** (Fase 3) | primeiro estado normal do ciclo de vida; a tela abre formulário vazio |
+
+### Salvar é um alternador, não um recurso
+
+`POST` idempotente (200, não 201 — um 201 prometeria criação a cada chamada e deixaria de ser verdade
+na segunda) e `DELETE` idempotente (204 mesmo sem estar salvo). O id do `DELETE` é o da **licitação**,
+não o do registro — é o único id que a tela tem em mãos.
+
+`POST` confere a licitação na fachada **antes de gravar**: salvar um id inexistente criaria uma linha
+órfã que a listagem descartaria em silêncio para sempre — o usuário clicaria em salvar e nada
+apareceria, sem erro nenhum.
+
+### A junção entre módulos que não pode ser um join
+
+`saved-opportunities` devolve a licitação **inteira** embutida, e ela mora no schema `catalog`, que
+Engagement não alcança. São duas consultas independentes, uma por módulo, unidas em memória pelo caso
+de uso via `ICatalogFacade` — com **uma** chamada levando todos os ids, porque N+1 atravessando
+fronteira de módulo é o pior lugar onde ele pode acontecer.
+
+A fachada foi reescrita nesta fase: ela tinha o mesmo `join` de value objects que quebrou o feed na
+Fase 4, e nunca havia sido executada. Agora reusa a projeção `FeedFor` do contexto de leitura — o que
+também garante que a licitação salva mostre exatamente a nota que o feed mostra.
 
 - `saved-opportunities` devolve a **oportunidade inteira** embutida, não só o id.
 - `DELETE /saved-opportunities/{opportunityId}` usa o id da **oportunidade**, não o do registro de
@@ -374,17 +405,41 @@ com SQL próprio (`IListOpportunitiesQueryService`), fora do repositório genér
 
 ---
 
-## 9. Fase 6 — Coleta e cobertura
+## 9. Fase 6 — Coleta e cobertura ⬖ (endpoints prontos, worker pendente)
 
-**Endpoints:** 25 a 27, mais o worker.
+**Endpoints:** 25 a 27 — **os 3 no ar**, em `src/LicitaEdital.Api/Gfe/`. **Os 27 do contrato
+existem.** A última `fileReplacements` de fixture saiu do `angular.json`.
 
-- `LicitaEdital.Worker` (projeto novo, spec §4): busca as fontes, normaliza, grava `Opportunity` e
-  dispara o recálculo de compatibilidade.
-- `CollectionRun` registra `startedAt`, `endedAt`, `newOpportunitiesCount`,
-  `result: success | partial | failure`, `errorMessage`.
 - `CollectionRunsResponse` é paginação **mais** `lastSuccessfulRunAt` — envelope próprio, não o
-  `PagedResponse<T>` padrão.
-- Idempotência por referência externa da fonte: reprocessar a mesma coleta não duplica oportunidade.
+  `PagedResponse<T>` padrão, porque o último sucesso não pertence à página: é o mesmo na página 1 e
+  na 9. Ele é **derivado** (`MAX(ended_at)` entre as bem-sucedidas), nunca um contador à parte — dois
+  lugares para a mesma verdade divergem na primeira falha parcial.
+- **A listagem só mostra execução concluída.** O contrato declara `endedAt` não anulável, e coleta em
+  andamento não tem fim; incluí-la mandaria nulo num campo que a tela imprime direto. A consequência
+  aceita: uma coleta em curso só aparece quando termina. Se o painel precisar de "rodando agora", isso
+  vira um campo próprio do contrato, não um `endedAt` nulo.
+- `/gfe/settings` exige **área `manager` e nenhuma permissão nomeada** — é o que `gfe.routes.ts`
+  declara, ao contrário de `/gfe/users` e `/gfe/collections`. Espelhar a rota do cliente é o que
+  impede as duas divergirem.
+
+### O worker ainda não existe, e por quê
+
+`LicitaEdital.Worker` (spec §4) — buscar as fontes, normalizar, gravar `Opportunity` e disparar o
+recálculo — **não foi construído**. O motor de compatibilidade e a idempotência por
+`source` + `externalReference` já estão prontos para recebê-lo; o que falta é a metade que depende de
+decisões que não são minhas:
+
+| Decisão | Por que não dá para inventar |
+| --- | --- |
+| Quais fontes (PNCP, Compras.gov.br, portais estaduais) | cada uma tem contrato e cadência próprios |
+| Credenciais e limites de taxa | não estão neste repositório |
+| Cadência da coleta | é escolha de produto e de custo |
+| Mapeamento campo a campo da fonte | escrever de memória produziria código plausível e errado |
+
+O caminho pronto para recebê-lo: um port `IOpportunitySource` em Facade, o adaptador real em
+Providers, e um `BackgroundService` que abre `CollectionRun.Start`, chama as fontes, grava e fecha com
+`Complete`. Sem fonte real, o que dá para entregar hoje é esse esqueleto com uma fonte falsa — útil
+para exercitar o pipeline de ponta a ponta, mas que não traz uma licitação sequer.
 
 ---
 
